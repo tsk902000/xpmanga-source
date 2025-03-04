@@ -1,0 +1,6 @@
+{
+    "name": "MangaKakalot",
+    "version": "1.0.0",
+    "type": "single",
+    "script": "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/mangakakalot/extract.js"
+}

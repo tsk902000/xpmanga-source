@@ -1,0 +1,7 @@
+{
+    "version": "1.0.0",
+    "type": "all",
+    "sources": [
+       "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/mangakakalot/meta.json"
+    ]
+}
