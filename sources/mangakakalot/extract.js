@@ -6,46 +6,49 @@ const extractor = {
     baseUrl: "https://www.mangakakalot.gg",
     icon: "https://www.mangakakalot.gg/favicon.ico",
     
-
-     // Available categories for the source
-  categories: [
-    { id: "latest", name: "Latest" },
-    { id: "popular", name: "Popular" },
-    { id: "completed", name: "Completed" },
-    { id: "new", name: "New Series" },
-    { id: "genre", name: "Genres" }
-  ],
+    // Available categories for the source
+    categories: [
+      { id: "latest", name: "Latest" },
+      { id: "popular", name: "Popular" },
+      { id: "completed", name: "Completed" },
+      { id: "new", name: "New Series" },
+      { id: "genre", name: "Genres" }
+    ],
   
     /**
      * Get URLs for different manga lists
      */
-    getListUrl: function(type, page = 1) {
+    getListUrl: function(type, page) {
+      if (page === undefined) page = 1;
+      
       switch (type) {
         case 'latest':
-          return `${this.baseUrl}/manga-list/latest-manga/page/${page}`;
+          return this.baseUrl + "/manga-list/latest-manga/page/" + page;
         case 'popular':
-          return `${this.baseUrl}/manga-list/hot-manga/page/${page}`;
+          return this.baseUrl + "/manga-list/hot-manga/page/" + page;
         case 'completed':
-          return `${this.baseUrl}/manga-list/completed-manga/page/${page}`;
+          return this.baseUrl + "/manga-list/completed-manga/page/" + page;
         case 'new':
-          return `${this.baseUrl}/manga-list/new-manga/page/${page}`;
+          return this.baseUrl + "/manga-list/new-manga/page/" + page;
         default:
-          return `${this.baseUrl}/manga-list/latest-manga/page/${page}`;
+          return this.baseUrl + "/manga-list/latest-manga/page/" + page;
       }
     },
     
     /**
      * Get URL for search
      */
-    getSearchUrl: function(query, page = 1) {
-      return `${this.baseUrl}/search/${encodeURIComponent(query)}?page=${page}`;
+    getSearchUrl: function(query, page) {
+      if (page === undefined) page = 1;
+      return this.baseUrl + "/search/" + encodeURIComponent(query) + "?page=" + page;
     },
     
     /**
      * Get URL for genre
      */
-    getGenreUrl: function(genre, page = 1) {
-      return `${this.baseUrl}/manga-list/genre/${encodeURIComponent(genre)}?page=${page}`;
+    getGenreUrl: function(genre, page) {
+      if (page === undefined) page = 1;
+      return this.baseUrl + "/manga-list/genre/" + encodeURIComponent(genre) + "?page=" + page;
     },
     
     /**
@@ -77,7 +80,7 @@ const extractor = {
               title = titleElement.textContent.trim() || titleElement.title || "";
             }
             
-            const url = link?.href || "";
+            const url = link ? (link.href || "") : "";
             
             let cover = "";
             if (img) {
@@ -100,11 +103,11 @@ const extractor = {
             
             if (title && url) {
               items.push({
-                id,
-                title,
-                cover,
-                url,
-                lastChapter
+                id: id,
+                title: title,
+                cover: cover,
+                url: url,
+                lastChapter: lastChapter
               });
             }
           } catch (e) {
@@ -112,7 +115,7 @@ const extractor = {
           }
         }
         
-        return { success: true, items };
+        return { success: true, items: items };
       } catch (e) {
         return { success: false, error: e.toString(), items: [] };
       }
@@ -164,7 +167,7 @@ const extractor = {
             const authorLinks = item.querySelectorAll("a");
             if (authorLinks && authorLinks.length > 0) {
               author = Array.from(authorLinks)
-                .map(a => a.textContent.trim())
+                .map(function(a) { return a.textContent.trim(); })
                 .join(", ");
             } else {
               author = text.replace(/author|artist|:/gi, "").trim();
@@ -238,18 +241,18 @@ const extractor = {
         }
         
         // Sort chapters by number, descending (newest first)
-        chapters.sort((a, b) => b.number - a.number);
+        chapters.sort(function(a, b) { return b.number - a.number; });
         
         return {
           success: true,
           manga: {
-            title,
-            cover,
-            description,
-            author,
-            status,
-            genres,
-            chapters
+            title: title,
+            cover: cover,
+            description: description,
+            author: author,
+            status: status,
+            genres: genres,
+            chapters: chapters
           }
         };
       } catch (e) {
@@ -277,7 +280,7 @@ const extractor = {
           }
         }
         
-        return { success: true, images };
+        return { success: true, images: images };
       } catch (e) {
         return { success: false, error: e.toString(), images: [] };
       }
@@ -307,11 +310,11 @@ const extractor = {
           }
           
           if (name && id) {
-            genres.push({ id, name });
+            genres.push({ id: id, name: name });
           }
         }
         
-        return { success: true, genres };
+        return { success: true, genres: genres };
       } catch (e) {
         return { success: false, error: e.toString(), genres: [] };
       }
