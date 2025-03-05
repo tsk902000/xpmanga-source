@@ -1,10 +1,22 @@
-// MangaKakalot Extractor v1.2.0
+// MangaKakalot Extractor v1.3.0
 const extractor = {
     id: "mangakakalot",
     name: "MangaKakalot",
-    version: "1.2.0",
+    version: "1.3.0",
     baseUrl: "https://www.mangakakalot.gg",
     icon: "https://www.mangakakalot.gg/favicon.ico",
+    
+    // The main site host for Referer headers
+    siteOrigin: "https://www.mangakakalot.gg",
+    
+    // Image CDN domains used by MangaKakalot
+    imageDomains: [
+        "img-r1.2xstorage.com",
+        "storage.waitst.com",
+        "avt.mkklcdnv6temp.com",
+        "s1.mkklcdnv6temp.com",
+        "s3.mkklcdnv6temp.com"
+    ],
     
     // Available categories for the source
     categories: [
@@ -24,6 +36,46 @@ const extractor = {
         return url;
       }
       return this.baseUrl + (url.startsWith("/") ? url : "/" + url);
+    },
+    
+    /**
+     * Helper: Get the proper referer origin for an image URL
+     */
+    getImageOrigin: function(imageUrl) {
+      if (!imageUrl) return this.siteOrigin;
+      
+      try {
+        // Check if it's one of the known image domains
+        for (const domain of this.imageDomains) {
+          if (imageUrl.includes(domain)) {
+            return `https://${domain}`;
+          }
+        }
+        
+        // If not, try to parse the URL to get the origin
+        if (imageUrl.startsWith('http')) {
+          const urlParts = imageUrl.split('/');
+          if (urlParts.length >= 3) {
+            return `${urlParts[0]}//${urlParts[2]}`;
+          }
+        }
+      } catch (e) {
+        console.error("Error getting image origin", e);
+      }
+      
+      // Default to main site origin
+      return this.siteOrigin;
+    },
+    
+    /**
+     * Helper: Process image URL to create an object with URL and origin
+     */
+    processImageUrl: function(url) {
+      const processedUrl = this.ensureAbsoluteUrl(url);
+      return {
+        url: processedUrl,
+        origin: this.getImageOrigin(processedUrl)
+      };
     },
     
     /**
@@ -96,27 +148,45 @@ const extractor = {
      * Helper: Extract image URL from an image tag
      */
     extractImageUrl: function(imgTag) {
-      if (!imgTag) return "";
+      if (!imgTag) return null;
       
-      // Check for data-src first (common for lazy-loaded images)
-      const dataSrcMatch = imgTag.match(/data-src=["']([^"']*)["']/i);
-      if (dataSrcMatch && dataSrcMatch[1]) {
-        return this.ensureAbsoluteUrl(dataSrcMatch[1]);
+      // Debug the tag
+      console.log("Processing image tag: " + imgTag);
+      
+      // Look for all possible image attributes
+      const attributes = [
+        "data-src", 
+        "data-original", 
+        "data-lazy-src", 
+        "data-srcset", 
+        "src"
+      ];
+      
+      for (let attr of attributes) {
+        const regex = new RegExp(attr + '=["\'](https?://[^"\']+)["\']', 'i');
+        const match = imgTag.match(regex);
+        if (match && match[1]) {
+          // Found a valid URL
+          const url = match[1].trim();
+          console.log("Found image URL: " + url);
+          return this.processImageUrl(url);
+        }
       }
       
-      // Then check for src
-      const srcMatch = imgTag.match(/src=["']([^"']*)["']/i);
-      if (srcMatch && srcMatch[1]) {
-        return this.ensureAbsoluteUrl(srcMatch[1]);
+      // For relative URLs
+      for (let attr of attributes) {
+        const regex = new RegExp(attr + '=["\'](/[^"\']+)["\']', 'i');
+        const match = imgTag.match(regex);
+        if (match && match[1]) {
+          // Convert relative URL to absolute
+          const url = this.baseUrl + match[1].trim();
+          console.log("Found relative image URL, converted to: " + url);
+          return this.processImageUrl(url);
+        }
       }
       
-      // Then check for data-original (another lazy loading attribute)
-      const dataOriginalMatch = imgTag.match(/data-original=["']([^"']*)["']/i);
-      if (dataOriginalMatch && dataOriginalMatch[1]) {
-        return this.ensureAbsoluteUrl(dataOriginalMatch[1]);
-      }
-      
-      return "";
+      console.log("No image URL found in tag");
+      return null;
     },
     
     /**
@@ -141,10 +211,10 @@ const extractor = {
               const mangaHtml = block.substring(0, endBlock + 6);
               
               // Extract cover URL - more specific to target the cover image
-              let cover = "";
+              let coverData = null;
               const imgTags = mangaHtml.match(/<img[^>]*>/g);
               if (imgTags && imgTags.length > 0) {
-                cover = this.extractImageUrl(imgTags[0]);
+                coverData = this.extractImageUrl(imgTags[0]);
               }
               
               // Extract manga URL and title
@@ -182,11 +252,11 @@ const extractor = {
               }
               
               if (title && url) {
-                console.log("Found manga: " + title + " with cover: " + cover);
+                console.log("Found manga: " + title + " with cover: " + (coverData ? coverData.url : "none"));
                 items.push({
                   id: id,
                   title: title,
-                  cover: cover,
+                  cover: coverData || { url: "", origin: this.siteOrigin },
                   url: url,
                   lastChapter: lastChapter
                 });
@@ -219,10 +289,10 @@ const extractor = {
               url = this.ensureAbsoluteUrl(url);
               
               // Extract cover URL
-              let cover = "";
+              let coverData = null;
               const imgTags = mangaHtml.match(/<img[^>]*>/g);
               if (imgTags && imgTags.length > 0) {
-                cover = this.extractImageUrl(imgTags[0]);
+                coverData = this.extractImageUrl(imgTags[0]);
               }
               
               // Extract chapter info
@@ -241,11 +311,11 @@ const extractor = {
               }
               
               if (title && url) {
-                console.log("Found manga: " + title + " with cover: " + cover);
+                console.log("Found manga: " + title + " with cover: " + (coverData ? coverData.url : "none"));
                 items.push({
                   id: id,
                   title: title,
-                  cover: cover,
+                  cover: coverData || { url: "", origin: this.siteOrigin },
                   url: url,
                   lastChapter: lastChapter
                 });
@@ -279,13 +349,16 @@ const extractor = {
         }
         
         // Extract cover
-        let cover = "";
+        let coverData = { url: "", origin: this.siteOrigin };
         const coverBlockMatch = html.match(/class="(?:manga-info-pic|story-info-left)"[^>]*>([\s\S]*?)<\/div>/i);
         if (coverBlockMatch) {
           const coverBlock = coverBlockMatch[1];
           const imgTag = coverBlock.match(/<img[^>]*>/i);
           if (imgTag) {
-            cover = this.extractImageUrl(imgTag[0]);
+            const extracted = this.extractImageUrl(imgTag[0]);
+            if (extracted) {
+              coverData = extracted;
+            }
           }
         }
         
@@ -411,7 +484,7 @@ const extractor = {
           success: true,
           manga: {
             title: title,
-            cover: cover,
+            cover: coverData,
             description: description,
             author: author,
             status: status,
@@ -444,10 +517,10 @@ const extractor = {
           
           if (imgMatches) {
             imgMatches.forEach(imgTag => {
-              const src = this.extractImageUrl(imgTag);
+              const imageData = this.extractImageUrl(imgTag);
               
-              if (src && !src.includes("logo")) {
-                images.push(src);
+              if (imageData && imageData.url && !imageData.url.includes("logo")) {
+                images.push(imageData);
               }
             });
           }
