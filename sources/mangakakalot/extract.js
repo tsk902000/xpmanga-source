@@ -1,8 +1,8 @@
-// MangaKakalot Extractor v1.1.0
+// MangaKakalot Extractor v1.2.0
 const extractor = {
     id: "mangakakalot",
     name: "MangaKakalot",
-    version: "1.1.0",
+    version: "1.2.0",
     baseUrl: "https://www.mangakakalot.gg",
     icon: "https://www.mangakakalot.gg/favicon.ico",
     
@@ -15,6 +15,17 @@ const extractor = {
       { id: "genre", name: "Genres" }
     ],
   
+    /**
+     * Helper: Make sure URL is absolute
+     */
+    ensureAbsoluteUrl: function(url) {
+      if (!url) return "";
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        return url;
+      }
+      return this.baseUrl + (url.startsWith("/") ? url : "/" + url);
+    },
+    
     /**
      * Get URLs for different manga lists
      */
@@ -82,6 +93,33 @@ const extractor = {
     },
     
     /**
+     * Helper: Extract image URL from an image tag
+     */
+    extractImageUrl: function(imgTag) {
+      if (!imgTag) return "";
+      
+      // Check for data-src first (common for lazy-loaded images)
+      const dataSrcMatch = imgTag.match(/data-src=["']([^"']*)["']/i);
+      if (dataSrcMatch && dataSrcMatch[1]) {
+        return this.ensureAbsoluteUrl(dataSrcMatch[1]);
+      }
+      
+      // Then check for src
+      const srcMatch = imgTag.match(/src=["']([^"']*)["']/i);
+      if (srcMatch && srcMatch[1]) {
+        return this.ensureAbsoluteUrl(srcMatch[1]);
+      }
+      
+      // Then check for data-original (another lazy loading attribute)
+      const dataOriginalMatch = imgTag.match(/data-original=["']([^"']*)["']/i);
+      if (dataOriginalMatch && dataOriginalMatch[1]) {
+        return this.ensureAbsoluteUrl(dataOriginalMatch[1]);
+      }
+      
+      return "";
+    },
+    
+    /**
      * Parse manga list from HTML
      */
     parseMangaList: function(html) {
@@ -102,11 +140,11 @@ const extractor = {
               const endBlock = block.indexOf('</div>');
               const mangaHtml = block.substring(0, endBlock + 6);
               
-              // Extract cover URL
+              // Extract cover URL - more specific to target the cover image
               let cover = "";
-              const imgMatch = mangaHtml.match(/src=["']([^"']*)['"]/i);
-              if (imgMatch) {
-                cover = imgMatch[1];
+              const imgTags = mangaHtml.match(/<img[^>]*>/g);
+              if (imgTags && imgTags.length > 0) {
+                cover = this.extractImageUrl(imgTags[0]);
               }
               
               // Extract manga URL and title
@@ -125,6 +163,9 @@ const extractor = {
                 }
               }
               
+              // Make sure URL is absolute
+              url = this.ensureAbsoluteUrl(url);
+              
               // Extract chapter info
               let lastChapter = "";
               const chapterMatch = mangaHtml.match(/class="list-story-item-wrap-chapter"[^>]*>(.*?)<\/a>/is);
@@ -141,6 +182,7 @@ const extractor = {
               }
               
               if (title && url) {
+                console.log("Found manga: " + title + " with cover: " + cover);
                 items.push({
                   id: id,
                   title: title,
@@ -154,8 +196,8 @@ const extractor = {
             }
           }
         } else if (html.includes("itemupdate")) {
-          console.log("Detected homepage format");
-          // Homepage format
+          console.log("Detected homepage or alternative format");
+          // Homepage format or alternative listing
           const mangaBlocks = html.split('class="itemupdate');
           
           for (let i = 1; i < mangaBlocks.length; i++) {
@@ -173,11 +215,14 @@ const extractor = {
                 title = this.cleanText(titleMatch[2]);
               }
               
+              // Make sure URL is absolute
+              url = this.ensureAbsoluteUrl(url);
+              
               // Extract cover URL
               let cover = "";
-              const imgMatch = mangaHtml.match(/img[^>]*src=["']([^"']*)['"]/i);
-              if (imgMatch) {
-                cover = imgMatch[1];
+              const imgTags = mangaHtml.match(/<img[^>]*>/g);
+              if (imgTags && imgTags.length > 0) {
+                cover = this.extractImageUrl(imgTags[0]);
               }
               
               // Extract chapter info
@@ -196,6 +241,7 @@ const extractor = {
               }
               
               if (title && url) {
+                console.log("Found manga: " + title + " with cover: " + cover);
                 items.push({
                   id: id,
                   title: title,
@@ -234,9 +280,13 @@ const extractor = {
         
         // Extract cover
         let cover = "";
-        const coverMatch = html.match(/class="(?:manga-info-pic|story-info-left)"[^>]*>[\s\S]*?<img[^>]*src=["']([^"']*)["']/i);
-        if (coverMatch) {
-          cover = coverMatch[1];
+        const coverBlockMatch = html.match(/class="(?:manga-info-pic|story-info-left)"[^>]*>([\s\S]*?)<\/div>/i);
+        if (coverBlockMatch) {
+          const coverBlock = coverBlockMatch[1];
+          const imgTag = coverBlock.match(/<img[^>]*>/i);
+          if (imgTag) {
+            cover = this.extractImageUrl(imgTag[0]);
+          }
         }
         
         // Extract description
@@ -308,7 +358,7 @@ const extractor = {
                 const titleMatch = this.cleanText(chapterLink);
                 
                 if (urlMatch && titleMatch) {
-                  const chapterUrl = urlMatch[1];
+                  const chapterUrl = this.ensureAbsoluteUrl(urlMatch[1]);
                   const chapterTitle = titleMatch;
                   
                   // Extract ID from chapter URL
@@ -390,19 +440,11 @@ const extractor = {
           const readerEnd = html.indexOf('</div>', readerStart);
           const readerContent = html.substring(readerStart, readerEnd);
           
-          const imgMatches = readerContent.match(/<img[^>]*(?:data-src|src)=["']([^"']*)['"]/g);
+          const imgMatches = readerContent.match(/<img[^>]*>/g);
           
           if (imgMatches) {
             imgMatches.forEach(imgTag => {
-              let src = "";
-              const dataSrcMatch = imgTag.match(/data-src=["']([^"']*)["']/i);
-              const srcMatch = imgTag.match(/src=["']([^"']*)["']/i);
-              
-              if (dataSrcMatch) {
-                src = dataSrcMatch[1];
-              } else if (srcMatch) {
-                src = srcMatch[1];
-              }
+              const src = this.extractImageUrl(imgTag);
               
               if (src && !src.includes("logo")) {
                 images.push(src);
