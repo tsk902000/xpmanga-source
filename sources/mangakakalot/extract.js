@@ -23,15 +23,15 @@ const extractor = {
       
       switch (type) {
         case 'latest':
-          return this.baseUrl + "/manga-list/latest-manga/page/" + page;
+          return this.baseUrl + "/manga-list/latest-manga?page=" + page;
         case 'popular':
-          return this.baseUrl + "/manga-list/hot-manga/page/" + page;
+          return this.baseUrl + "/manga-list/hot-manga?page=" + page;
         case 'completed':
-          return this.baseUrl + "/manga-list/completed-manga/page/" + page;
+          return this.baseUrl + "/manga-list/completed-manga?page=" + page;
         case 'new':
-          return this.baseUrl + "/manga-list/new-manga/page/" + page;
+          return this.baseUrl + "/manga-list/new-manga?page=" + page;
         default:
-          return this.baseUrl + "/manga-list/latest-manga/page/" + page;
+          return this.baseUrl + "/manga-list/latest-manga?page=" + page;
       }
     },
     
