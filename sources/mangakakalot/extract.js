@@ -6,6 +6,16 @@ const extractor = {
     baseUrl: "https://www.mangakakalot.gg",
     icon: "https://www.mangakakalot.gg/favicon.ico",
     
+
+     // Available categories for the source
+  categories: [
+    { id: "latest", name: "Latest" },
+    { id: "popular", name: "Popular" },
+    { id: "completed", name: "Completed" },
+    { id: "new", name: "New Series" },
+    { id: "genre", name: "Genres" }
+  ],
+  
     /**
      * Get URLs for different manga lists
      */
