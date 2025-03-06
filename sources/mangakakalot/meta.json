@@ -2,5 +2,10 @@
     "name": "MangaKakalot",
     "version": "1.0.0",
     "type": "single",
-    "script": "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/mangakakalot/extract.js"
+    "script": "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/mangakakalot/extract.js",
+    "baseUrl": "https://www.mangakakalot.gg",
+    "icon": "https://www.mangakakalot.gg/favicon.ico",
+    "imageproxy": "https://image-proxy.kai902000.workers.dev/?referrer=https://www.mangakakalot.gg&url=",
+    "imageReferer": "https://www.mangakakalot.gg/"
 }
+
