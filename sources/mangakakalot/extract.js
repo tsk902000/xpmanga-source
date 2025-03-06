@@ -5,9 +5,10 @@ const extractor = {
     version: "1.3.0",
     baseUrl: "https://www.mangakakalot.gg",
     icon: "https://www.mangakakalot.gg/favicon.ico",
-    
+    imageproxy: "https://image-proxy.kai902000.workers.dev/?referrer=https://www.mangakakalot.gg&url=",
+    //imageproxy: "https://image-proxy.kai902000.workers.dev/?referrer=https://www.mangakakalot.gg&url=https://img-r1.2xstorage.com/thumb/i-was-mistaken-for-the-villain.webp",
     // Add this single line
-    imageReferer: "https://www.mangakakalot.gg",
+    imageReferer: "https://www.mangakakalot.gg/",
     
     // Available categories for the source
     categories: [
