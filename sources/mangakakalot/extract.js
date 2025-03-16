@@ -1,14 +1,13 @@
-// MangaKakalot Extractor v1.3.0
+// MangaKakalot Extractor v1.4.0
 const extractor = {
     id: "mangakakalot",
     name: "MangaKakalot",
-    version: "1.3.0",
+    version: "1.4.0",
     baseUrl: "https://www.mangakakalot.gg",
     icon: "https://www.mangakakalot.gg/favicon.ico",
-    imageproxy: "https://image-proxy.kai902000.workers.dev/?referrer=https://www.mangakakalot.gg&url=",
-    //imageproxy: "https://image-proxy.kai902000.workers.dev/?referrer=https://www.mangakakalot.gg&url=https://img-r1.2xstorage.com/thumb/i-was-mistaken-for-the-villain.webp",
-    // Add this single line
+    imageproxy: "",  // Disabled image proxy to use direct connections
     imageReferer: "https://www.mangakakalot.gg/",
+    debug: true, // Enable debug mode
     
     // Available categories for the source
     categories: [
@@ -362,20 +361,139 @@ const extractor = {
           }
         }
         
-        // Extract chapters
+        // Extract chapters with enhanced debugging
+        console.log("Starting chapter extraction");
         const chapters = [];
-        let chapterBlockStart = html.indexOf('class="chapter-list"') || html.indexOf('class="row-content-chapter"');
+        
+        // Common chapter list container classes across different versions of the site
+        const possibleChapterContainers = [
+          'chapter-list',
+          'row-content-chapter',
+          'manga-chapter-list',
+          'chapter_list',
+          'chapter-container',
+          'chapter-table'
+        ];
+        
+        let chapterBlockStart = -1;
+        let containerClassFound = null;
+        
+        // Try to find the chapter container
+        for (const containerClass of possibleChapterContainers) {
+          const index = html.indexOf(`class="${containerClass}"`);
+          if (index !== -1) {
+            chapterBlockStart = index;
+            containerClassFound = containerClass;
+            console.log(`Found chapter container with class: ${containerClass} at position ${index}`);
+            break;
+          }
+        }
+        
+        // If standard classes not found, look for any UL that might contain chapters
+        if (chapterBlockStart === -1) {
+          console.log("Standard chapter containers not found, trying alternative approach");
+          
+          // Look for UL elements near keywords
+          const chapterSectionHints = [
+            "chapter",
+            "chapters",
+            "read",
+            "episode"
+          ];
+          
+          for (const hint of chapterSectionHints) {
+            const hintIndex = html.toLowerCase().indexOf(hint);
+            if (hintIndex !== -1) {
+              // Look for a UL within reasonable distance
+              const sectionStart = Math.max(0, hintIndex - 500);
+              const sectionEnd = Math.min(html.length, hintIndex + 1500);
+              const section = html.substring(sectionStart, sectionEnd);
+              
+              const ulMatch = section.match(/<ul[^>]*>/i);
+              if (ulMatch) {
+                const ulIndex = section.indexOf(ulMatch[0]);
+                chapterBlockStart = sectionStart + ulIndex;
+                console.log(`Found potential chapter list via keyword "${hint}" at position ${chapterBlockStart}`);
+                break;
+              }
+            }
+          }
+        }
         
         if (chapterBlockStart !== -1) {
-          const chapterBlockEnd = html.indexOf('</ul>', chapterBlockStart);
+          console.log("Attempting to extract chapter block");
+          const nextClosingUl = html.indexOf('</ul>', chapterBlockStart);
+          const nextClosingDiv = html.indexOf('</div>', chapterBlockStart);
+          
+          // Choose the closer closing tag to avoid capturing too much
+          let chapterBlockEnd;
+          if (nextClosingUl !== -1 && (nextClosingDiv === -1 || nextClosingUl < nextClosingDiv)) {
+            chapterBlockEnd = nextClosingUl;
+            console.log(`Using </ul> as end marker at position ${chapterBlockEnd}`);
+          } else if (nextClosingDiv !== -1) {
+            chapterBlockEnd = nextClosingDiv;
+            console.log(`Using </div> as end marker at position ${chapterBlockEnd}`);
+          } else {
+            chapterBlockEnd = Math.min(chapterBlockStart + 20000, html.length); // Safety limit
+            console.log(`No proper end tag found, using safety limit: ${chapterBlockEnd}`);
+          }
+          
+          // Extract the block containing chapters
           const chapterBlock = html.substring(chapterBlockStart, chapterBlockEnd);
+          console.log(`Chapter block length: ${chapterBlock.length} characters`);
           
-          const chapterMatches = chapterBlock.match(/<a[^>]*href=["']([^"']*)["'][^>]*>(.*?)<\/a>/g);
+          // Look for a sample of the block to understand its structure
+          console.log(`Chapter block sample: ${chapterBlock.substring(0, Math.min(200, chapterBlock.length))}...`);
           
-          if (chapterMatches) {
+          // Try various patterns to match chapter links
+          const patternAttempts = [
+            /<a[^>]*href=["']([^"']*)["'][^>]*>(.*?)<\/a>/g,
+            /<a[^>]*href=["']([^"']*chapter[^"']*)["'][^>]*>(.*?)<\/a>/gi,
+            /<a[^>]*href=["']([^"']*)["'][^>]*>([^<]*Chapter[^<]*)<\/a>/gi
+          ];
+          
+          let chapterMatches = null;
+          let patternUsed = '';
+          
+          for (const pattern of patternAttempts) {
+            const matches = chapterBlock.match(pattern);
+            if (matches && matches.length > 0) {
+              chapterMatches = matches;
+              patternUsed = pattern.toString();
+              console.log(`Found ${matches.length} chapter links using pattern: ${patternUsed}`);
+              break;
+            }
+          }
+          
+          if (!chapterMatches) {
+            console.log("No chapter links found with standard patterns, trying broader search");
+            // Last resort: find all links and filter for likely chapter links
+            const allLinks = chapterBlock.match(/<a[^>]*href=["']([^"']*)["'][^>]*>([^<]*)<\/a>/g);
+            
+            if (allLinks) {
+              console.log(`Found ${allLinks.length} total links, filtering for chapters`);
+              chapterMatches = allLinks.filter(link => {
+                return link.toLowerCase().includes('chapter') || 
+                       link.toLowerCase().includes('ch.') ||
+                       link.toLowerCase().includes('episode') ||
+                       link.match(/\d+(\.\d+)?/);  // Has numbers like chapter numbers
+              });
+              
+              if (chapterMatches.length > 0) {
+                console.log(`Filtered to ${chapterMatches.length} likely chapter links`);
+                patternUsed = 'filtered links';
+              }
+            }
+          }
+          
+          if (chapterMatches && chapterMatches.length > 0) {
+            console.log(`Processing ${chapterMatches.length} chapter matches using pattern: ${patternUsed}`);
+            
             for (let i = 0; i < chapterMatches.length; i++) {
               try {
                 const chapterLink = chapterMatches[i];
+                console.log(`Processing chapter link: ${chapterLink.substring(0, Math.min(50, chapterLink.length))}...`);
+                
                 const urlMatch = chapterLink.match(/href=["']([^"']*)["']/i);
                 const titleMatch = this.cleanText(chapterLink);
                 
@@ -383,12 +501,15 @@ const extractor = {
                   const chapterUrl = this.ensureAbsoluteUrl(urlMatch[1]);
                   const chapterTitle = titleMatch;
                   
+                  console.log(`Found chapter: ${chapterTitle} with URL: ${chapterUrl}`);
+                  
                   // Extract ID from chapter URL
                   let chapterId = "";
                   if (chapterUrl) {
                     const urlParts = chapterUrl.split("/");
                     chapterId = urlParts[urlParts.length - 1] || "";
                     chapterId = chapterId.split("?")[0];
+                    console.log(`Extracted chapter ID: ${chapterId}`);
                   }
                   
                   // Try to extract chapter number from title
@@ -396,6 +517,9 @@ const extractor = {
                   const match = chapterTitle.match(/chapter\s+(\d+(\.\d+)?)/i);
                   if (match) {
                     chapterNumber = parseFloat(match[1]);
+                    console.log(`Extracted chapter number from title: ${chapterNumber}`);
+                  } else {
+                    console.log(`Using default chapter number: ${chapterNumber}`);
                   }
                   
                   // Extract date
@@ -407,6 +531,7 @@ const extractor = {
                     const dateMatch = dateSection.match(/class="chapter-time"[^>]*>(.*?)<\/span>/i);
                     if (dateMatch) {
                       date = this.cleanText(dateMatch[1]);
+                      console.log(`Extracted date: ${date}`);
                     }
                   }
                   
@@ -417,6 +542,9 @@ const extractor = {
                     url: chapterUrl,
                     date: date
                   });
+                  console.log(`Added chapter #${chapters.length}: ${chapterTitle}`);
+                } else {
+                  console.log(`Skipping chapter link due to missing URL or title. URL match: ${!!urlMatch}, Title: ${titleMatch}`);
                 }
               } catch (e) {
                 console.error("Error parsing chapter", e);
@@ -425,7 +553,21 @@ const extractor = {
             
             // Sort chapters by number, descending (newest first)
             chapters.sort(function(a, b) { return b.number - a.number; });
+            console.log(`Sorted ${chapters.length} chapters by number (descending)`);
+          } else {
+            console.error("No chapter matches found in chapter block");
           }
+        } else {
+          console.error("Could not find chapter list container in HTML");
+          // Add a dummy chapter for debugging purposes
+          chapters.push({
+            id: "debug-chapter",
+            number: 1,
+            title: "Debug Chapter (Chapter container not found)",
+            url: this.baseUrl + "/debug-chapter",
+            date: new Date().toISOString()
+          });
+          console.log("Added debug chapter as fallback");
         }
         
         console.log("Successfully extracted manga details");
