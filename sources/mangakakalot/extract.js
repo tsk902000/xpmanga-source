@@ -361,183 +361,116 @@ const extractor = {
           }
         }
         
-        // Extract chapters - specific to MangaKakalot's structure
-        console.log("Starting chapter extraction for MangaKakalot");
+        // Extract chapters using a simple, direct approach
+        console.log("Extracting chapters with simplified method");
         const chapters = [];
         
-        // Find the chapter-list container
-        const chapterListIndex = html.indexOf('class="chapter-list"');
-        if (chapterListIndex !== -1) {
-          console.log("Found chapter-list container");
-          
-          // Find the end of the chapter-list container
-          const chapterListEnd = html.indexOf('</div>', chapterListIndex);
-          if (chapterListEnd !== -1) {
-            // Extract the chapter list HTML
-            const chapterListHtml = html.substring(chapterListIndex, chapterListEnd);
-            console.log(`Chapter list HTML length: ${chapterListHtml.length} characters`);
+        // Define a regex pattern to match all chapter rows at once
+        const chapterRowPattern = /<div class="row">[\s\S]*?<span><a href="([^"]+)" title="([^"]+)">([^<]+)<\/a><\/span>[\s\S]*?<span[^>]*>([^<]+)<\/span>[\s\S]*?<\/div>/g;
+        
+        // Find all matches in the HTML
+        const matches = [...html.matchAll(chapterRowPattern)];
+        console.log(`Direct regex found ${matches.length} chapters`);
+        
+        // Process each match
+        for (const match of matches) {
+          try {
+            const chapterUrl = this.ensureAbsoluteUrl(match[1]);
+            const fullTitle = match[2]; // From title attribute
+            const displayTitle = match[3]; // From inner text
+            const date = match[4].trim();
             
-            // Find all row divs
-            const rowDivs = chapterListHtml.split('class="row"');
-            console.log(`Found ${rowDivs.length - 1} potential chapter rows`);
-            
-            // Skip first item as it's before the first class="row"
-            for (let i = 1; i < rowDivs.length; i++) {
-              try {
-                const rowDiv = rowDivs[i];
-                const endDiv = rowDiv.indexOf('</div>');
-                if (endDiv !== -1) {
-                  const rowHtml = rowDiv.substring(0, endDiv + 6);
-                  
-                  // Extract chapter link and title from the first span
-                  const chapterLinkMatch = rowHtml.match(/<span><a href=["']([^"']+)["'][^>]*title=["']([^"']+)["'][^>]*>([^<]+)<\/a>/i);
-                  
-                  if (chapterLinkMatch) {
-                    const chapterUrl = this.ensureAbsoluteUrl(chapterLinkMatch[1]);
-                    const fullTitle = chapterLinkMatch[2]; // From title attribute
-                    const displayTitle = chapterLinkMatch[3]; // From inner text
-                    
-                    // Extract chapter ID from URL
-                    let chapterId = "";
-                    if (chapterUrl) {
-                      const urlParts = chapterUrl.split("/");
-                      chapterId = urlParts[urlParts.length - 1] || "";
-                      chapterId = chapterId.split("?")[0];
-                    }
-                    
-                    // Extract chapter number from title
-                    let chapterNumber = rowDivs.length - i; // Default fallback: inverse position
-                    const numberMatch = displayTitle.match(/Chapter\s+(\d+(\.\d+)?)/i);
-                    if (numberMatch) {
-                      chapterNumber = parseFloat(numberMatch[1]);
-                    }
-                    
-                    // Extract date from the third span
-                    let date = "";
-                    const dateMatch = rowHtml.match(/<span[^>]*title=["']([^"']+)["'][^>]*>([^<]+)<\/span>$/i);
-                    if (dateMatch) {
-                      date = dateMatch[2].trim(); // Use display text as it's more user-friendly
-                    }
-                    
-                    console.log(`Found chapter: ${displayTitle} (${chapterNumber}) - ${date}`);
-                    
-                    chapters.push({
-                      id: chapterId,
-                      number: chapterNumber,
-                      title: displayTitle,
-                      url: chapterUrl,
-                      date: date
-                    });
-                  } else {
-                    console.log(`No chapter link found in row: ${rowHtml.substring(0, 50)}...`);
-                  }
-                }
-              } catch (e) {
-                console.error("Error parsing chapter row", e);
-              }
+            // Extract chapter ID from URL
+            let chapterId = "";
+            if (chapterUrl) {
+              const urlParts = chapterUrl.split("/");
+              chapterId = urlParts[urlParts.length - 1] || "";
+              chapterId = chapterId.split("?")[0];
             }
             
-            // Sort chapters by number, descending (newest first)
-            chapters.sort(function(a, b) { return b.number - a.number; });
-            console.log(`Sorted ${chapters.length} chapters by number (descending)`);
-          } else {
-            console.error("Could not find end of chapter-list container");
-          }
-        } else {
-          console.error("Could not find chapter-list container in HTML");
-          
-          // Fallback approach - look for other common patterns
-          console.log("Trying fallback chapter extraction approach");
-          
-          // Look for divs with "chapter" in their class
-          const chapterContainers = [
-            'chapter-list',
-            'row-content-chapter',
-            'manga-chapter-list',
-            'chapter_list',
-            'chapter-container',
-            'chapter-table'
-          ];
-          
-          let foundChapters = false;
-          
-          for (const containerClass of chapterContainers) {
-            const containerIndex = html.indexOf(`class="${containerClass}"`);
-            if (containerIndex !== -1) {
-              console.log(`Found fallback container with class: ${containerClass}`);
-              
-              // Extract a section of HTML around this container
-              const sectionStart = Math.max(0, containerIndex - 100);
-              const sectionEnd = Math.min(html.length, containerIndex + 10000);
-              const section = html.substring(sectionStart, sectionEnd);
-              
-              // Look for chapter links
-              const chapterLinks = section.match(/<a[^>]*href=["']([^"']*chapter[^"']*)["'][^>]*>(.*?)<\/a>/gi);
-              
-              if (chapterLinks && chapterLinks.length > 0) {
-                console.log(`Found ${chapterLinks.length} chapter links in fallback container`);
-                
-                for (let i = 0; i < chapterLinks.length; i++) {
-                  try {
-                    const chapterLink = chapterLinks[i];
-                    const urlMatch = chapterLink.match(/href=["']([^"']*)["']/i);
-                    const titleText = this.cleanText(chapterLink);
-                    
-                    if (urlMatch && titleText) {
-                      const chapterUrl = this.ensureAbsoluteUrl(urlMatch[1]);
-                      
-                      // Extract ID from URL
-                      let chapterId = "";
-                      if (chapterUrl) {
-                        const urlParts = chapterUrl.split("/");
-                        chapterId = urlParts[urlParts.length - 1] || "";
-                        chapterId = chapterId.split("?")[0];
-                      }
-                      
-                      // Extract chapter number from title
-                      let chapterNumber = chapterLinks.length - i; // Default fallback
-                      const numberMatch = titleText.match(/chapter\s+(\d+(\.\d+)?)/i);
-                      if (numberMatch) {
-                        chapterNumber = parseFloat(numberMatch[1]);
-                      }
-                      
-                      console.log(`Found fallback chapter: ${titleText} (${chapterNumber})`);
-                      
-                      chapters.push({
-                        id: chapterId,
-                        number: chapterNumber,
-                        title: titleText,
-                        url: chapterUrl,
-                        date: ""
-                      });
-                    }
-                  } catch (e) {
-                    console.error("Error parsing fallback chapter", e);
-                  }
-                }
-                
-                // Sort chapters by number, descending (newest first)
-                chapters.sort(function(a, b) { return b.number - a.number; });
-                console.log(`Sorted ${chapters.length} fallback chapters by number (descending)`);
-                
-                foundChapters = true;
-                break;
-              }
+            // Extract chapter number from title
+            let chapterNumber = 0; // Default
+            const numberMatch = displayTitle.match(/Chapter\s+(\d+(\.\d+)?)/i);
+            if (numberMatch) {
+              chapterNumber = parseFloat(numberMatch[1]);
+            } else {
+              chapterNumber = chapters.length + 1; // Fallback to position
             }
-          }
-          
-          if (!foundChapters) {
-            console.error("No chapters found with any method");
-            // Add a dummy chapter for debugging purposes
+            
+            console.log(`Found chapter: ${displayTitle} (${chapterNumber}) - ${date}`);
+            
             chapters.push({
-              id: "debug-chapter",
-              number: 1,
-              title: "Debug Chapter (Chapter container not found)",
-              url: this.baseUrl + "/debug-chapter",
-              date: new Date().toISOString()
+              id: chapterId,
+              number: chapterNumber,
+              title: displayTitle,
+              url: chapterUrl,
+              date: date
             });
+          } catch (e) {
+            console.error("Error parsing chapter:", e);
           }
         }
+        
+        // If no chapters found with direct method, try fallback
+        if (chapters.length === 0) {
+          console.log("No chapters found with direct method, trying fallback...");
+          
+          // Fallback: Look for any links containing "chapter" in the URL or text
+          const chapterLinkPattern = /<a[^>]*href="([^"]*chapter[^"]*)"[^>]*>(.*?)<\/a>/gi;
+          const linkMatches = [...html.matchAll(chapterLinkPattern)];
+          
+          for (const match of linkMatches) {
+            try {
+              const chapterUrl = this.ensureAbsoluteUrl(match[1]);
+              const chapterTitle = this.cleanText(match[2]);
+              
+              // Extract ID from URL
+              let chapterId = "";
+              if (chapterUrl) {
+                const urlParts = chapterUrl.split("/");
+                chapterId = urlParts[urlParts.length - 1] || "";
+                chapterId = chapterId.split("?")[0];
+              }
+              
+              // Extract chapter number from title
+              let chapterNumber = 0;
+              const numberMatch = chapterTitle.match(/chapter\s+(\d+(\.\d+)?)/i);
+              if (numberMatch) {
+                chapterNumber = parseFloat(numberMatch[1]);
+              } else {
+                chapterNumber = linkMatches.indexOf(match) + 1; // Fallback to position
+              }
+              
+              console.log(`Found fallback chapter: ${chapterTitle} (${chapterNumber})`);
+              
+              chapters.push({
+                id: chapterId,
+                number: chapterNumber,
+                title: chapterTitle,
+                url: chapterUrl,
+                date: ""
+              });
+            } catch (e) {
+              console.error("Error parsing fallback chapter:", e);
+            }
+          }
+        }
+        
+        // If still no chapters, add a debug chapter
+        if (chapters.length === 0) {
+          console.warn("No chapters found with any method. Adding debug chapter.");
+          chapters.push({
+            id: "debug-chapter",
+            number: 1,
+            title: "Debug Chapter (No chapters found)",
+            url: this.baseUrl + "/debug-chapter",
+            date: new Date().toISOString()
+          });
+        }
+        
+        // Sort chapters by number, descending (newest first)
+        chapters.sort((a, b) => b.number - a.number);
+        console.log(`Processed ${chapters.length} total chapters`);
         
         console.log("Successfully extracted manga details");
         return {
