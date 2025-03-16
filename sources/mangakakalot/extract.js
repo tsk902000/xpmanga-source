@@ -490,7 +490,6 @@ const extractor = {
         return { success: false, error: e.toString(), manga: null };
       }
     },
-    
     /**
      * Parse chapter images from HTML
      */
@@ -499,27 +498,175 @@ const extractor = {
         console.log("Starting to parse chapter images");
         const images = [];
         
-        // Find all image elements in reader
-        const readerStart = html.indexOf('class="container-chapter-reader"') || html.indexOf('class="reading-content"');
+        // Check for multiple possible reader container class names
+        const possibleContainers = [
+          'class="container-chapter-reader"',
+          'class="reading-content"',
+          'id="vung-doc"',
+          'class="page-break"',
+          'class="show-full-text"'
+        ];
         
-        if (readerStart !== -1) {
-          const readerEnd = html.indexOf('</div>', readerStart);
-          const readerContent = html.substring(readerStart, readerEnd);
-          
-          const imgMatches = readerContent.match(/<img[^>]*>/g);
-          
-          if (imgMatches) {
-            imgMatches.forEach(imgTag => {
-              const imageUrl = this.extractImageUrl(imgTag);
+        let foundReader = false;
+        
+        // Try each possible container
+        for (const container of possibleContainers) {
+          if (html.includes(container)) {
+            console.log("Found reader container: " + container);
+            foundReader = true;
+            
+            // Find the start of the container
+            let searchStart = 0;
+            let containerStartIndex;
+            
+            // Look for all instances of this container (some sites have multiple containers)
+            while ((containerStartIndex = html.indexOf(container, searchStart)) !== -1) {
+              const readerStart = containerStartIndex;
+              // Find the end of the div - be more careful about possible nested divs
+              let readerEnd = containerStartIndex;
+              let divCount = 0;
               
-              if (imageUrl && !imageUrl.includes("logo")) {
-                images.push(imageUrl);
+              // Scan forward to find the matching closing div
+              let inTag = false;
+              for (let i = readerStart; i < html.length; i++) {
+                if (html[i] === '<' && html[i+1] !== '/') inTag = true;
+                if (html[i] === '>' && inTag) inTag = false;
+                
+                // Count opening divs
+                if (html.substr(i, 4) === '<div' && !inTag) {
+                  divCount++;
+                }
+                // Count closing divs
+                else if (html.substr(i, 6) === '</div>' && !inTag) {
+                  divCount--;
+                  // Found matching div
+                  if (divCount <= 0) {
+                    readerEnd = i + 6;
+                    break;
+                  }
+                }
               }
-            });
+              
+              // Extract the content of this container
+              const readerContent = html.substring(readerStart, readerEnd);
+              console.log("Found reader content block: " + readerContent.length + " characters");
+              
+              // Find all image tags
+              const imgMatches = readerContent.match(/<img[^>]*>/g);
+              
+              if (imgMatches && imgMatches.length > 0) {
+                console.log("Found " + imgMatches.length + " image tags in this container");
+                
+                imgMatches.forEach(imgTag => {
+                  const imageUrl = this.extractImageUrl(imgTag);
+                  
+                  // Filter out logos, ads, and other non-manga images
+                  if (imageUrl &&
+                     !imageUrl.includes("logo") &&
+                     !imageUrl.includes("banner") &&
+                     !imageUrl.includes("ad_") &&
+                     !imageUrl.includes("ads_")) {
+                    
+                    // Skip duplicates
+                    if (!images.includes(imageUrl)) {
+                      console.log("Adding image URL: " + imageUrl.substring(0, 50) + "...");
+                      images.push(imageUrl);
+                    }
+                  }
+                });
+              }
+              
+              // Move to the next possible container instance
+              searchStart = readerEnd;
+            }
           }
         }
         
-        console.log("Found " + images.length + " chapter images");
+        // If no reader containers found, try a more generic approach to find all images
+        if (!foundReader || images.length === 0) {
+          console.log("No standard reader containers found, trying alternative approach");
+          
+          // Find all image tags in the document that look like manga pages
+          const allImgTags = html.match(/<img[^>]*>/g) || [];
+          console.log("Found " + allImgTags.length + " total image tags");
+          
+          // Look for images that are likely manga pages (typically larger and in sequence)
+          allImgTags.forEach(imgTag => {
+            // Check for common manga image indicators
+            if (imgTag.includes('data-src') ||
+                imgTag.includes('loading="lazy"') ||
+                imgTag.includes('class="chapter-img"') ||
+                imgTag.includes('class="page"')) {
+              
+              const imageUrl = this.extractImageUrl(imgTag);
+              
+              if (imageUrl &&
+                 !imageUrl.includes("logo") &&
+                 !imageUrl.includes("banner") &&
+                 !imageUrl.includes("ad_")) {
+                
+                // Skip duplicates
+                if (!images.includes(imageUrl)) {
+                  console.log("Adding fallback image URL: " + imageUrl.substring(0, 50) + "...");
+                  images.push(imageUrl);
+                }
+              }
+            }
+          });
+        }
+        
+        // Final check - if we still have no images, try a very generic approach
+        if (images.length === 0) {
+          console.log("No images found with standard methods, trying last-resort approach");
+          
+          // Just get all image tags that have a src or data-src attribute
+          const lastResortRegex = /<img[^>]+(?:src|data-src)=['"]([^'"]+\.(?:jpg|jpeg|png|webp))['"]/gi;
+          let match;
+          
+          while ((match = lastResortRegex.exec(html)) !== null) {
+            const imageUrl = this.ensureAbsoluteUrl(match[1]);
+            
+            if (imageUrl &&
+               !imageUrl.includes("logo") &&
+               !images.includes(imageUrl)) {
+              console.log("Adding last-resort image URL: " + imageUrl.substring(0, 50) + "...");
+              images.push(imageUrl);
+            }
+          }
+        }
+        
+        console.log("Found total of " + images.length + " chapter images");
+        
+        // Sort images if they contain numbered filenames
+        if (images.length > 1) {
+          try {
+            const hasNumbers = images.some(url => {
+              const filename = url.split('/').pop();
+              return /\d+/.test(filename);
+            });
+            
+            if (hasNumbers) {
+              console.log("Attempting to sort images by filename");
+              images.sort((a, b) => {
+                const aName = a.split('/').pop();
+                const bName = b.split('/').pop();
+                
+                // Extract numbers from filenames
+                const aMatch = aName.match(/(\d+)/);
+                const bMatch = bName.match(/(\d+)/);
+                
+                if (aMatch && bMatch) {
+                  return parseInt(aMatch[1]) - parseInt(bMatch[1]);
+                }
+                
+                return 0;
+              });
+            }
+          } catch (sortError) {
+            console.error("Error sorting images", sortError);
+          }
+        }
+        
         return { success: true, images: images };
       } catch (e) {
         console.error("Failed to extract chapter images", e);
