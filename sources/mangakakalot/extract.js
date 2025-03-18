@@ -326,88 +326,128 @@ const extractor = {
         if (infoListMatch) {
           const infoList = infoListMatch[0];
           
-          // Extract author
-          const authorMatch = infoList.match(/author|artist/i);
+          // Extract author - improved pattern matching
+          console.log("Extracting author information");
+          const authorMatch = infoList.match(/<li>Author\(s\)\s*:\s*/i) || infoList.match(/author|artist/i);
           if (authorMatch) {
             const authorLine = infoList.substring(authorMatch.index, infoList.indexOf('</li>', authorMatch.index));
+            console.log("Author line: " + authorLine);
             const authorLinks = authorLine.match(/<a[^>]*>(.*?)<\/a>/g);
             
             if (authorLinks) {
               author = authorLinks.map(link => this.cleanText(link)).join(", ");
+              console.log("Extracted author from links: " + author);
             } else {
-              author = this.cleanText(authorLine.replace(/author|artist|:/gi, ""));
+              // Try to extract author without links
+              const authorText = authorLine.replace(/<li>Author\(s\)\s*:\s*/i, "").replace(/author|artist|:/gi, "");
+              author = this.cleanText(authorText);
+              console.log("Extracted author from text: " + author);
             }
+          } else {
+            console.log("Author pattern not found in info list");
           }
           
-          // Extract status
-          const statusMatch = infoList.match(/status/i);
-          if (statusMatch) {
+          // Extract status - improved pattern matching
+          console.log("Extracting status information");
+          const statusMatch = infoList.match(/<li>Status\s*:\s*([^<]+)<\/li>/i) || infoList.match(/status/i);
+          if (statusMatch && statusMatch.length > 1 && statusMatch[1]) {
+            // Direct match from regex group
+            status = statusMatch[1].trim();
+            console.log("Extracted status directly: " + status);
+          } else if (statusMatch) {
+            // Fallback to old method
             const statusLine = infoList.substring(statusMatch.index, infoList.indexOf('</li>', statusMatch.index));
             status = this.cleanText(statusLine.replace(/status|:/gi, ""));
+            console.log("Extracted status from line: " + status);
+          } else {
+            console.log("Status pattern not found in info list");
           }
           
-          // Extract genres
-          const genreMatch = infoList.match(/genre|categories/i);
+          // Extract genres - improved pattern matching
+          console.log("Extracting genres information");
+          const genreMatch = infoList.match(/<li class="genres"[^>]*>Genres\s*:\s*/i) || infoList.match(/genre|categories/i);
           if (genreMatch) {
             const genreLine = infoList.substring(genreMatch.index, infoList.indexOf('</li>', genreMatch.index));
+            console.log("Genre line found with length: " + genreLine.length);
             const genreLinks = genreLine.match(/<a[^>]*>(.*?)<\/a>/g);
             
             if (genreLinks) {
               genreLinks.forEach(link => {
                 const genre = this.cleanText(link);
-                if (genre) genres.push(genre);
+                if (genre) {
+                  genres.push(genre);
+                  console.log("Added genre: " + genre);
+                }
               });
+            } else {
+              console.log("No genre links found in genre line");
             }
+          } else {
+            console.log("Genres pattern not found in info list");
           }
         }
         
-        // Extract chapters using a simple, direct approach
-        console.log("Extracting chapters with simplified method");
+        // Extract chapters with improved method
+        console.log("Extracting chapters with updated method");
         const chapters = [];
         
-        // Define a regex pattern to match all chapter rows at once
-        const chapterRowPattern = /<div class="row">[\s\S]*?<span><a href="([^"]+)" title="([^"]+)">([^<]+)<\/a><\/span>[\s\S]*?<span[^>]*>([^<]+)<\/span>[\s\S]*?<\/div>/g;
-        
-        // Find all matches in the HTML
-        const matches = [...html.matchAll(chapterRowPattern)];
-        console.log(`Direct regex found ${matches.length} chapters`);
-        
-        // Process each match
-        for (const match of matches) {
-          try {
-            const chapterUrl = this.ensureAbsoluteUrl(match[1]);
-            const fullTitle = match[2]; // From title attribute
-            const displayTitle = match[3]; // From inner text
-            const date = match[4].trim();
+        // Look for the chapter-list container first
+        const chapterListMatch = html.match(/<div class="chapter-list">([\s\S]*?)<\/div>\s*(?:<\/div>|$)/i);
+        if (chapterListMatch) {
+          const chapterListHtml = chapterListMatch[1];
+          console.log("Found chapter-list container with length: " + chapterListHtml.length);
+          
+          // Define a more precise regex pattern to match all chapter rows
+          const chapterRowPattern = /<div class="row">\s*<span><a href="([^"]+)" title="([^"]+)">([^<]+)<\/a><\/span>\s*<span>[^<]*<\/span>\s*<span[^>]*>([^<]+)<\/span>\s*<\/div>/g;
+          
+          // Find all matches in the chapter list HTML
+          const matches = [...chapterListHtml.matchAll(chapterRowPattern)];
+          console.log(`Found ${matches.length} chapters with updated regex`);
+          
+          // Process each match
+          for (const match of matches) {
+            try {
+              const chapterUrl = this.ensureAbsoluteUrl(match[1]);
+              const fullTitle = match[2]; // From title attribute
+              const displayTitle = match[3]; // From inner text
+              const date = match[4].trim();
+              
+              // Extract chapter ID from URL
+              let chapterId = "";
+              if (chapterUrl) {
+                const urlParts = chapterUrl.split("/");
+                chapterId = urlParts[urlParts.length - 1] || "";
+                chapterId = chapterId.split("?")[0];
+              }
+              
+              // Extract chapter number from title with improved regex
+              let chapterNumber = 0; // Default
+              const numberMatch = displayTitle.match(/Chapter\s+(\d+(\.\d+)?)/i);
+              if (numberMatch) {
+                chapterNumber = parseFloat(numberMatch[1]);
+              } else {
+                // Try alternative formats like "Ch.X" or just a number
+                const altMatch = displayTitle.match(/Ch\.\s*(\d+(\.\d+)?)/i) ||
+                                displayTitle.match(/(\d+(\.\d+)?)/);
+                if (altMatch) {
+                  chapterNumber = parseFloat(altMatch[1]);
+                } else {
+                  chapterNumber = chapters.length + 1; // Fallback to position
+                }
+              }
             
-            // Extract chapter ID from URL
-            let chapterId = "";
-            if (chapterUrl) {
-              const urlParts = chapterUrl.split("/");
-              chapterId = urlParts[urlParts.length - 1] || "";
-              chapterId = chapterId.split("?")[0];
+              console.log(`Found chapter: ${displayTitle} (${chapterNumber}) - ${date}`);
+              
+              chapters.push({
+                id: chapterId,
+                number: chapterNumber,
+                title: displayTitle,
+                url: chapterUrl,
+                date: date
+              });
+            } catch (e) {
+              console.error("Error parsing chapter:", e);
             }
-            
-            // Extract chapter number from title
-            let chapterNumber = 0; // Default
-            const numberMatch = displayTitle.match(/Chapter\s+(\d+(\.\d+)?)/i);
-            if (numberMatch) {
-              chapterNumber = parseFloat(numberMatch[1]);
-            } else {
-              chapterNumber = chapters.length + 1; // Fallback to position
-            }
-            
-            console.log(`Found chapter: ${displayTitle} (${chapterNumber}) - ${date}`);
-            
-            chapters.push({
-              id: chapterId,
-              number: chapterNumber,
-              title: displayTitle,
-              url: chapterUrl,
-              date: date
-            });
-          } catch (e) {
-            console.error("Error parsing chapter:", e);
           }
         }
         
