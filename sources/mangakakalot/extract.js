@@ -106,20 +106,31 @@ const extractor = {
       
       // Look for all possible image attributes
       const attributes = [
-        "data-src", 
-        "data-original", 
-        "data-lazy-src", 
-        "data-srcset", 
+        "data-src",
+        "data-original",
+        "data-lazy-src",
+        "data-srcset",
+        "data-url",  // Added new attribute
+        "data-image",  // Added new attribute
         "src"
       ];
       
+      // First check for onerror attribute which might contain the fallback URL
+      const onerrorMatch = imgTag.match(/onerror="[^"]*this\.src='([^']+)'/);
+      if (onerrorMatch && onerrorMatch[1]) {
+        const url = onerrorMatch[1].trim();
+        console.log("Found fallback URL in onerror: " + url);
+        return this.ensureAbsoluteUrl(url);
+      }
+      
+      // Then check regular attributes
       for (let attr of attributes) {
         const regex = new RegExp(attr + '=["\'](https?://[^"\']+)["\']', 'i');
         const match = imgTag.match(regex);
         if (match && match[1]) {
           // Found a valid URL
           const url = match[1].trim();
-          console.log("Found image URL: " + url);
+          console.log("Found image URL in " + attr + ": " + url);
           return url;
         }
       }
@@ -131,7 +142,7 @@ const extractor = {
         if (match && match[1]) {
           // Convert relative URL to absolute
           const url = this.baseUrl + match[1].trim();
-          console.log("Found relative image URL, converted to: " + url);
+          console.log("Found relative image URL in " + attr + ", converted to: " + url);
           return url;
         }
       }
@@ -536,16 +547,26 @@ const extractor = {
     parseChapterImages: function(html) {
       try {
         console.log("Starting to parse chapter images");
+        console.log("HTML length: " + html.length);
+        
+        // Log a sample of the HTML for debugging
+        console.log("HTML sample: " + html.substring(0, 500) + "...");
+        
         const images = [];
         
-        // Check for multiple possible reader container class names
+        // Updated container patterns based on current MangaKakalot HTML structure
         const possibleContainers = [
           'class="container-chapter-reader"',
           'class="reading-content"',
           'id="vung-doc"',
           'class="page-break"',
-          'class="show-full-text"'
+          'class="show-full-text"',
+          'class="chapter-content"',  // Added new potential container
+          'class="chapter-images"'    // Added new potential container
         ];
+        
+        // Log which containers we're looking for
+        console.log("Searching for containers: " + JSON.stringify(possibleContainers));
         
         let foundReader = false;
         
@@ -564,23 +585,19 @@ const extractor = {
               const readerStart = containerStartIndex;
               // Find the end of the div - be more careful about possible nested divs
               let readerEnd = containerStartIndex;
-              let divCount = 0;
+              let divCount = 1;  // Start with 1 for the opening div
               
               // Scan forward to find the matching closing div
-              let inTag = false;
-              for (let i = readerStart; i < html.length; i++) {
-                if (html[i] === '<' && html[i+1] !== '/') inTag = true;
-                if (html[i] === '>' && inTag) inTag = false;
-                
+              for (let i = readerStart + container.length; i < html.length; i++) {
                 // Count opening divs
-                if (html.substr(i, 4) === '<div' && !inTag) {
+                if (html.substr(i, 4) === '<div') {
                   divCount++;
                 }
                 // Count closing divs
-                else if (html.substr(i, 6) === '</div>' && !inTag) {
+                else if (html.substr(i, 6) === '</div>') {
                   divCount--;
                   // Found matching div
-                  if (divCount <= 0) {
+                  if (divCount === 0) {
                     readerEnd = i + 6;
                     break;
                   }
@@ -590,12 +607,14 @@ const extractor = {
               // Extract the content of this container
               const readerContent = html.substring(readerStart, readerEnd);
               console.log("Found reader content block: " + readerContent.length + " characters");
+              console.log("Reader content sample: " + readerContent.substring(0, 200) + "...");
               
               // Find all image tags
               const imgMatches = readerContent.match(/<img[^>]*>/g);
               
               if (imgMatches && imgMatches.length > 0) {
                 console.log("Found " + imgMatches.length + " image tags in this container");
+                console.log("First image tag: " + imgMatches[0]);
                 
                 imgMatches.forEach(imgTag => {
                   const imageUrl = this.extractImageUrl(imgTag);
@@ -605,7 +624,8 @@ const extractor = {
                      !imageUrl.includes("logo") &&
                      !imageUrl.includes("banner") &&
                      !imageUrl.includes("ad_") &&
-                     !imageUrl.includes("ads_")) {
+                     !imageUrl.includes("ads_") &&
+                     !imageUrl.includes("icon")) {
                     
                     // Skip duplicates
                     if (!images.includes(imageUrl)) {
@@ -614,6 +634,8 @@ const extractor = {
                     }
                   }
                 });
+              } else {
+                console.log("No image tags found in this container");
               }
               
               // Move to the next possible container instance
@@ -630,13 +652,15 @@ const extractor = {
           const allImgTags = html.match(/<img[^>]*>/g) || [];
           console.log("Found " + allImgTags.length + " total image tags");
           
-          // Look for images that are likely manga pages (typically larger and in sequence)
+          // Look for images that are likely manga pages
           allImgTags.forEach(imgTag => {
             // Check for common manga image indicators
             if (imgTag.includes('data-src') ||
                 imgTag.includes('loading="lazy"') ||
                 imgTag.includes('class="chapter-img"') ||
-                imgTag.includes('class="page"')) {
+                imgTag.includes('class="page"') ||
+                imgTag.includes('alt="page"') ||  // Added new indicator
+                imgTag.includes('onerror="this.onerror=null;this.src=')) {  // Added new indicator for fallback images
               
               const imageUrl = this.extractImageUrl(imgTag);
               
@@ -653,6 +677,22 @@ const extractor = {
               }
             }
           });
+        }
+        
+        // Check specifically for the onerror pattern which is common in MangaKakalot
+        if (images.length === 0) {
+          console.log("Checking specifically for onerror pattern");
+          const onerrorRegex = /onerror="this\.onerror=null;this\.src='([^']+)';"/g;
+          let match;
+          
+          while ((match = onerrorRegex.exec(html)) !== null) {
+            const imageUrl = this.ensureAbsoluteUrl(match[1]);
+            
+            if (imageUrl && !images.includes(imageUrl)) {
+              console.log("Adding onerror fallback URL: " + imageUrl.substring(0, 50) + "...");
+              images.push(imageUrl);
+            }
+          }
         }
         
         // Final check - if we still have no images, try a very generic approach
@@ -686,7 +726,7 @@ const extractor = {
             });
             
             if (hasNumbers) {
-              console.log("Attempting to sort images by filename");
+              console.log("Sorting images by filename");
               images.sort((a, b) => {
                 const aName = a.split('/').pop();
                 const bName = b.split('/').pop();
