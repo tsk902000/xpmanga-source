@@ -143,7 +143,7 @@ const extractor = {
           // Convert relative URL to absolute
           const url = this.baseUrl + match[1].trim();
           console.log("Found relative image URL in " + attr + ", converted to: " + url);
-          return url;
+          return `https://image-proxy.kai902000.workers.dev/?url=` + url + `&referrer=${this.imageReferer}`;
         }
       }
       
