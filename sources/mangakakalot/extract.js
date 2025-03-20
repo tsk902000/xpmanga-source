@@ -115,15 +115,8 @@ const extractor = {
         "src"
       ];
       
-      // First check for onerror attribute which might contain the fallback URL
-      const onerrorMatch = imgTag.match(/onerror="[^"]*this\.src='([^']+)'/);
-      if (onerrorMatch && onerrorMatch[1]) {
-        const url = onerrorMatch[1].trim();
-        console.log("Found fallback URL in onerror: " + url);
-        return this.ensureAbsoluteUrl(url);
-      }
-      
-      // Then check regular attributes
+
+      // First Check Regular
       for (let attr of attributes) {
         const regex = new RegExp(attr + '=["\'](https?://[^"\']+)["\']', 'i');
         const match = imgTag.match(regex);
@@ -135,19 +128,15 @@ const extractor = {
         }
       }
       
-      // For relative URLs
-      for (let attr of attributes) {
-        const regex = new RegExp(attr + '=["\'](/[^"\']+)["\']', 'i');
-        const match = imgTag.match(regex);
-        if (match && match[1]) {
-          // Convert relative URL to absolute
-          const url = this.baseUrl + match[1].trim();
-          console.log("Found relative image URL in " + attr + ", converted to: " + url);
-          return `https://image-proxy.kai902000.workers.dev/?url=` + url + `&referrer=${this.imageReferer}`;
-        }
+      // Then check fallback
+      const onerrorMatch = imgTag.match(/onerror="[^"]*this\.src='([^']+)'/);
+      if (onerrorMatch && onerrorMatch[1]) {
+        const url = onerrorMatch[1].trim();
+        console.log("Found fallback URL in onerror: " + url);
+        return this.ensureAbsoluteUrl(url);
       }
       
-      console.log("No image URL found in tag");
+      console.log("No image URL found in tag when extractomg url");
       return null;
     },
     
@@ -686,7 +675,7 @@ const extractor = {
           let match;
           
           while ((match = onerrorRegex.exec(html)) !== null) {
-            const imageUrl =   `https://image-proxy.kai902000.workers.dev/?url=` + this.ensureAbsoluteUrl(match[1]) + `&referrer=${this.imageReferer}`;
+            const imageUrl = this.ensureAbsoluteUrl(match[1]);
             
             if (imageUrl && !images.includes(imageUrl)) {
               console.log("Adding onerror fallback URL: " + imageUrl.substring(0, 50) + "...");
