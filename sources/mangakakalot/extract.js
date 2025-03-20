@@ -686,7 +686,7 @@ const extractor = {
           let match;
           
           while ((match = onerrorRegex.exec(html)) !== null) {
-            const imageUrl = this.ensureAbsoluteUrl(match[1]);
+            const imageUrl =   `https://image-proxy.kai902000.workers.dev/?url=` + this.ensureAbsoluteUrl(match[1]) + `&referrer=${this.imageReferer}`;
             
             if (imageUrl && !images.includes(imageUrl)) {
               console.log("Adding onerror fallback URL: " + imageUrl.substring(0, 50) + "...");
