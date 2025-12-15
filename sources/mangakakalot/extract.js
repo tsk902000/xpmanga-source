@@ -1,13 +1,28 @@
-// MangaKakalot Extractor v1.5.0
+// MangaKakalot Extractor v1.6.0
 const extractor = {
   id: "mangakakalot",
   name: "MangaKakalot",
-  version: "1.5.0",
+  version: "1.6.0",
   baseUrl: "https://www.mangakakalot.gg",
   icon: "https://www.mangakakalot.gg/favicon.ico",
   imageproxy: "",  // Disabled image proxy to use direct connections
   imageReferer: "https://www.mangakakalot.gg/",
   debug: true, // Enable debug mode
+
+  // Rate limiting configuration - prevents 429 errors
+  rateLimit: {
+    requestsPerMinute: 30,      // Max requests per minute
+    minIntervalMs: 2000,        // Minimum milliseconds between requests
+    maxRetries: 3,              // Max retries on rate limit errors
+    retryDelayMs: 3000          // Base delay for retry (doubles each attempt)
+  },
+
+  // Image loading configuration
+  imageLoading: {
+    maxConcurrent: 3,           // Max parallel image loads (default: 3)
+    preloadAhead: 2,            // Preload N images ahead of current page
+    timeout: 30000              // Image load timeout in milliseconds
+  },
   
   // Available categories for the source
   categories: [
