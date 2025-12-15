@@ -1,8 +1,8 @@
-// MangaKakalot Extractor v1.4.0
+// MangaKakalot Extractor v1.5.0
 const extractor = {
   id: "mangakakalot",
   name: "MangaKakalot",
-  version: "1.4.0",
+  version: "1.5.0",
   baseUrl: "https://www.mangakakalot.gg",
   icon: "https://www.mangakakalot.gg/favicon.ico",
   imageproxy: "",  // Disabled image proxy to use direct connections
@@ -147,53 +147,47 @@ const extractor = {
     try {
       console.log("Starting to parse manga list");
       const items = [];
-      
-      // Check page type and extract accordingly
-      if (html.includes("list-truyen-item-wrap")) {
-        console.log("Detected listing page format");
-        // Category/listing page format
-        const mangaBlocks = html.split('class="list-truyen-item-wrap"');
-        
+
+      // Check page type and extract accordingly - updated for new structure
+      if (html.includes("list-story-item")) {
+        console.log("Detected new listing page format (list-story-item)");
+        // New format: class="list-story-item bookmark_check cover"
+        const mangaBlocks = html.split(/class="list-story-item[^"]*"/);
+
         // Skip first element as it's before the first manga item
         for (let i = 1; i < mangaBlocks.length; i++) {
           try {
             const block = mangaBlocks[i];
-            const endBlock = block.indexOf('</div>');
-            const mangaHtml = block.substring(0, endBlock + 6);
-            
-            // Extract cover URL - more specific to target the cover image
-            let coverUrl = "";
-            const imgTags = mangaHtml.match(/<img[^>]*>/g);
-            if (imgTags && imgTags.length > 0) {
-              coverUrl = this.extractImageUrl(imgTags[0]) || "";
-            }
-            
-            // Extract manga URL and title
-            const urlMatch = mangaHtml.match(/href=["']([^"']*)['"]\s+title=["']([^"']*)["']/i);
+            // Find a reasonable end point for this item
+            const endBlock = block.indexOf('</a>\n                            </h3>');
+            const mangaHtml = endBlock > 0 ? block.substring(0, endBlock + 50) : block.substring(0, 2000);
+
+            // Extract manga URL and title from the first href with title attribute
+            const urlMatch = mangaHtml.match(/href=["']([^"']*mangakakalot[^"']*\/manga\/[^"']*)["']\s+title=["']([^"']*)["']/i);
             let url = "", title = "";
-            
+
             if (urlMatch) {
               url = urlMatch[1];
               title = urlMatch[2];
             } else {
-              // Try again with different pattern
-              const titleMatch = mangaHtml.match(/<h3>\s*<a\s+href=["']([^"']*)["'][^>]*>(.*?)<\/a>/is);
+              // Try h3 pattern
+              const titleMatch = mangaHtml.match(/<h3>\s*<a\s+href=["']([^"']*)["'][^>]*title=["']([^"']*)["']/is);
               if (titleMatch) {
                 url = titleMatch[1];
-                title = this.cleanText(titleMatch[2]);
+                title = titleMatch[2];
               }
             }
-            
+
+            // Extract cover URL from img tag
+            let coverUrl = "";
+            const imgMatch = mangaHtml.match(/<img[^>]*>/i);
+            if (imgMatch) {
+              coverUrl = this.extractImageUrl(imgMatch[0]) || "";
+            }
+
             // Make sure URL is absolute
             url = this.ensureAbsoluteUrl(url);
-            
-            // Extract chapter info
-            let lastChapter = "";
-            const chapterMatch = mangaHtml.match(/class="list-story-item-wrap-chapter"[^>]*>(.*?)<\/a>/is);
-            if (chapterMatch) {
-              lastChapter = this.cleanText(chapterMatch[1]);
-            }
-            
+
             // Extract ID from URL
             let id = "";
             if (url) {
@@ -201,15 +195,62 @@ const extractor = {
               id = urlParts[urlParts.length - 1] || "";
               id = id.split("?")[0];
             }
-            
-            if (title && url) {
+
+            if (title && url && id) {
               console.log("Found manga: " + title + " with cover: " + (coverUrl || "none"));
               items.push({
                 id: id,
                 title: title,
                 cover: coverUrl,
                 url: url,
-                lastChapter: lastChapter
+                lastChapter: ""
+              });
+            }
+          } catch (e) {
+            console.error("Error parsing manga item", e);
+          }
+        }
+      } else if (html.includes("list-truyen-item-wrap")) {
+        console.log("Detected legacy listing page format");
+        // Legacy format - keep for backwards compatibility
+        const mangaBlocks = html.split('class="list-truyen-item-wrap"');
+
+        for (let i = 1; i < mangaBlocks.length; i++) {
+          try {
+            const block = mangaBlocks[i];
+            const endBlock = block.indexOf('</div>');
+            const mangaHtml = block.substring(0, endBlock + 6);
+
+            let coverUrl = "";
+            const imgTags = mangaHtml.match(/<img[^>]*>/g);
+            if (imgTags && imgTags.length > 0) {
+              coverUrl = this.extractImageUrl(imgTags[0]) || "";
+            }
+
+            const urlMatch = mangaHtml.match(/href=["']([^"']*)['"]\s+title=["']([^"']*)["']/i);
+            let url = "", title = "";
+
+            if (urlMatch) {
+              url = urlMatch[1];
+              title = urlMatch[2];
+            }
+
+            url = this.ensureAbsoluteUrl(url);
+
+            let id = "";
+            if (url) {
+              const urlParts = url.split("/");
+              id = urlParts[urlParts.length - 1] || "";
+              id = id.split("?")[0];
+            }
+
+            if (title && url) {
+              items.push({
+                id: id,
+                title: title,
+                cover: coverUrl,
+                url: url,
+                lastChapter: ""
               });
             }
           } catch (e) {
@@ -217,58 +258,45 @@ const extractor = {
           }
         }
       } else if (html.includes("itemupdate")) {
-        console.log("Detected homepage or alternative format");
-        // Homepage format or alternative listing
+        console.log("Detected homepage format");
         const mangaBlocks = html.split('class="itemupdate');
-        
+
         for (let i = 1; i < mangaBlocks.length; i++) {
           try {
             const block = mangaBlocks[i];
             const endBlock = block.indexOf('</div>');
             const mangaHtml = block.substring(0, endBlock + 6);
-            
-            // Extract title and URL
+
             const titleMatch = mangaHtml.match(/<h3>\s*<a[^>]*href=["']([^"']*)["'][^>]*>(.*?)<\/a>/is);
             let title = "", url = "";
-            
+
             if (titleMatch) {
               url = titleMatch[1];
               title = this.cleanText(titleMatch[2]);
             }
-            
-            // Make sure URL is absolute
+
             url = this.ensureAbsoluteUrl(url);
-            
-            // Extract cover URL
+
             let coverUrl = "";
             const imgTags = mangaHtml.match(/<img[^>]*>/g);
             if (imgTags && imgTags.length > 0) {
               coverUrl = this.extractImageUrl(imgTags[0]) || "";
             }
-            
-            // Extract chapter info
-            let lastChapter = "";
-            const chapterMatch = mangaHtml.match(/class="sts[^>]*>(.*?)<\/a>/is);
-            if (chapterMatch) {
-              lastChapter = this.cleanText(chapterMatch[1]);
-            }
-            
-            // Extract ID from URL
+
             let id = "";
             if (url) {
               const urlParts = url.split("/");
               id = urlParts[urlParts.length - 1] || "";
               id = id.split("?")[0];
             }
-            
+
             if (title && url) {
-              console.log("Found manga: " + title + " with cover: " + (coverUrl || "none"));
               items.push({
                 id: id,
                 title: title,
                 cover: coverUrl,
                 url: url,
-                lastChapter: lastChapter
+                lastChapter: ""
               });
             }
           } catch (e) {
@@ -276,7 +304,7 @@ const extractor = {
           }
         }
       }
-      
+
       console.log("Found " + items.length + " manga items");
       return { success: true, items: items };
     } catch (e) {
@@ -390,16 +418,22 @@ const extractor = {
       // Extract chapters with improved method
       console.log("Extracting chapters with updated method");
       const chapters = [];
-      
+
       // Look for the chapter-list container first
-      const chapterListMatch = html.match(/<div class="chapter-list">([\s\S]*?)<\/div>\s*(?:<\/div>|$)/i);
+      const chapterListMatch = html.match(/<div class="chapter-list">([\s\S]*?)(?:<\/div>\s*<\/div>\s*<\/div>|<div class="panel-story)/i);
       if (chapterListMatch) {
         const chapterListHtml = chapterListMatch[1];
         console.log("Found chapter-list container with length: " + chapterListHtml.length);
-        
-        // Define a more precise regex pattern to match all chapter rows
-        const chapterRowPattern = /<div class="row">\s*<span><a href="([^"]+)" title="([^"]+)">([^<]+)<\/a><\/span>\s*<span>[^<]*<\/span>\s*<span[^>]*>([^<]+)<\/span>\s*<\/div>/g;
-        
+
+        // Updated regex pattern to handle multiline HTML with flexible whitespace
+        // The actual HTML structure is:
+        // <div class="row">
+        //   <span><a href="URL" title="TITLE">TEXT</a></span>
+        //   <span> VIEWS </span>
+        //   <span title="DATE">DATE_DISPLAY</span>
+        // </div>
+        const chapterRowPattern = /<div\s+class="row">\s*<span><a\s+href="([^"]+)"\s*title="([^"]+)">([^<]+)<\/a><\/span>\s*<span>[^<]*<\/span>\s*<span[^>]*>([^<]+)<\/span>\s*<\/div>/g;
+
         // Find all matches in the chapter list HTML
         const matches = [...chapterListHtml.matchAll(chapterRowPattern)];
         console.log(`Found ${matches.length} chapters with updated regex`);
@@ -614,7 +648,9 @@ const extractor = {
                    !imageUrl.includes("banner") &&
                    !imageUrl.includes("ad_") &&
                    !imageUrl.includes("ads_") &&
-                   !imageUrl.includes("icon")) {
+                   !imageUrl.includes("icon") &&
+                   !imageUrl.includes("/bns/") &&
+                   !imageUrl.endsWith(".gif")) {
                   
                   // Skip duplicates
                   if (!images.includes(imageUrl)) {
@@ -656,7 +692,9 @@ const extractor = {
             if (imageUrl &&
                !imageUrl.includes("logo") &&
                !imageUrl.includes("banner") &&
-               !imageUrl.includes("ad_")) {
+               !imageUrl.includes("ad_") &&
+               !imageUrl.includes("/bns/") &&
+               !imageUrl.endsWith(".gif")) {
               
               // Skip duplicates
               if (!images.includes(imageUrl)) {
@@ -697,6 +735,8 @@ const extractor = {
           
           if (imageUrl &&
              !imageUrl.includes("logo") &&
+             !imageUrl.includes("/bns/") &&
+             !imageUrl.endsWith(".gif") &&
              !images.includes(imageUrl)) {
             console.log("Adding last-resort image URL: " + imageUrl.substring(0, 50) + "...");
             images.push(imageUrl);
