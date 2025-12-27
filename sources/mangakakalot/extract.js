@@ -175,7 +175,7 @@ const extractor = {
             const block = mangaBlocks[i];
             // Find a reasonable end point for this item
             const endBlock = block.indexOf('</a>\n                            </h3>');
-            const mangaHtml = endBlock > 0 ? block.substring(0, endBlock + 50) : block.substring(0, 2000);
+            const mangaHtml = endBlock > 0 ? block.substring(0, endBlock + 500) : block.substring(0, 2000);
 
             // Extract manga URL and title from the first href with title attribute
             const urlMatch = mangaHtml.match(/href=["']([^"']*mangakakalot[^"']*\/manga\/[^"']*)["']\s+title=["']([^"']*)["']/i);
@@ -202,6 +202,27 @@ const extractor = {
 
             // Make sure URL is absolute
             url = this.ensureAbsoluteUrl(url);
+            
+            // Extract chapter info
+            let lastChapter = "", lastChapterId = "";
+            // Look for the anchor tag with the specific class or just any chapter link
+            const chapterTagMatch = mangaHtml.match(/<a[^>]*class=["'][^"']*list-story-item-wrap-chapter[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) ||
+                                    mangaHtml.match(/<a[^>]*href=["'][^"']*chapter[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+            
+            if (chapterTagMatch) {
+              const fullTag = chapterTagMatch[0];
+              lastChapter = this.cleanText(chapterTagMatch[1]);
+              
+              const hrefMatch = fullTag.match(/href=["']([^"']*)["']/i);
+              if (hrefMatch) {
+                const chapterUrl = this.ensureAbsoluteUrl(hrefMatch[1]);
+                if (chapterUrl) {
+                  const urlParts = chapterUrl.split("/");
+                  lastChapterId = urlParts[urlParts.length - 1] || "";
+                  lastChapterId = lastChapterId.split("?")[0];
+                }
+              }
+            }
 
             // Extract ID from URL
             let id = "";
@@ -218,7 +239,8 @@ const extractor = {
                 title: title,
                 cover: coverUrl,
                 url: url,
-                lastChapter: ""
+                lastChapter: lastChapter,
+                lastChapterId: lastChapterId
               });
             }
           } catch (e) {
@@ -251,6 +273,26 @@ const extractor = {
             }
 
             url = this.ensureAbsoluteUrl(url);
+            
+            // Extract chapter info
+            let lastChapter = "", lastChapterId = "";
+            // Look for the anchor tag with the specific class 'list-story-item-wrap-chapter'
+            const chapterTagMatch = mangaHtml.match(/<a[^>]*class=["'][^"']*list-story-item-wrap-chapter[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+            
+            if (chapterTagMatch) {
+              const fullTag = chapterTagMatch[0];
+              lastChapter = this.cleanText(chapterTagMatch[1]);
+              
+              const hrefMatch = fullTag.match(/href=["']([^"']*)["']/i);
+              if (hrefMatch) {
+                const chapterUrl = this.ensureAbsoluteUrl(hrefMatch[1]);
+                if (chapterUrl) {
+                  const urlParts = chapterUrl.split("/");
+                  lastChapterId = urlParts[urlParts.length - 1] || "";
+                  lastChapterId = lastChapterId.split("?")[0];
+                }
+              }
+            }
 
             let id = "";
             if (url) {
@@ -265,7 +307,8 @@ const extractor = {
                 title: title,
                 cover: coverUrl,
                 url: url,
-                lastChapter: ""
+                lastChapter: lastChapter,
+                lastChapterId: lastChapterId
               });
             }
           } catch (e) {
@@ -297,6 +340,27 @@ const extractor = {
             if (imgTags && imgTags.length > 0) {
               coverUrl = this.extractImageUrl(imgTags[0]) || "";
             }
+            
+            // Extract chapter info
+            let lastChapter = "", lastChapterId = "";
+            // Look for the anchor tag with the specific class 'sts' or just any chapter link
+            const chapterTagMatch = mangaHtml.match(/<a[^>]*class=["'][^"']*sts[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) ||
+                                    mangaHtml.match(/<a[^>]*href=["'][^"']*chapter[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+            
+            if (chapterTagMatch) {
+              const fullTag = chapterTagMatch[0];
+              lastChapter = this.cleanText(chapterTagMatch[1]);
+              
+              const hrefMatch = fullTag.match(/href=["']([^"']*)["']/i);
+              if (hrefMatch) {
+                const chapterUrl = this.ensureAbsoluteUrl(hrefMatch[1]);
+                if (chapterUrl) {
+                  const urlParts = chapterUrl.split("/");
+                  lastChapterId = urlParts[urlParts.length - 1] || "";
+                  lastChapterId = lastChapterId.split("?")[0];
+                }
+              }
+            }
 
             let id = "";
             if (url) {
@@ -311,7 +375,8 @@ const extractor = {
                 title: title,
                 cover: coverUrl,
                 url: url,
-                lastChapter: ""
+                lastChapter: lastChapter,
+                lastChapterId: lastChapterId
               });
             }
           } catch (e) {

@@ -87,10 +87,19 @@ const extractor = {
               cover = img.getAttribute("data-src") || img.src || "";
             }
             
-            let lastChapter = "";
+            let lastChapter = "", lastChapterId = "";
             const chapterElement = element.querySelector(".chapter, .list-story-item-wrap-chapter, .latest-chapter");
             if (chapterElement) {
               lastChapter = chapterElement.textContent.trim();
+              const chapterLink = chapterElement.tagName === 'A' ? chapterElement : chapterElement.querySelector('a');
+              if (chapterLink) {
+                const chapterUrl = chapterLink.getAttribute("href") || "";
+                if (chapterUrl) {
+                  const urlParts = chapterUrl.split("/");
+                  lastChapterId = urlParts[urlParts.length - 1] || "";
+                  lastChapterId = lastChapterId.split("?")[0];
+                }
+              }
             }
             
             // Extract ID from URL
@@ -107,7 +116,8 @@ const extractor = {
                 title: title,
                 cover: cover,
                 url: url,
-                lastChapter: lastChapter
+                lastChapter: lastChapter,
+                lastChapterId: lastChapterId
               });
             }
           } catch (e) {
