@@ -77,13 +77,9 @@ var extractor = {
     if (page === undefined) page = 1;
     switch (type) {
       case 'latest':
-        return this.baseUrl + "/browse?sort=update&page=" + page;
-      case 'trending':
-        return this.baseUrl + "/browse?sort=d007&page=" + page;
-      case 'newest':
-        return this.baseUrl + "/browse?sort=create&page=" + page;
+        return this.baseUrl + "/latest?page=" + page;
       default:
-        return this.baseUrl + "/browse?sort=update&page=" + page;
+        return this.baseUrl + "/latest?page=" + page;
     }
   },
 
