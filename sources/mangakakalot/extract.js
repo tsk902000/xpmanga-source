@@ -97,7 +97,7 @@ const extractor = {
    * Helper: Extract attribute from HTML tag
    */
   extractAttribute: function(html, attrName) {
-    const regex = new RegExp(attrName + '="([^"]*)"','i');
+    const regex = new RegExp(attrName + '=["\']([^"\']*)["\']', 'i');
     const match = html.match(regex);
     return match ? match[1] : "";
   },
@@ -133,7 +133,7 @@ const extractor = {
 
     // First Check Regular
     for (let attr of attributes) {
-      const regex = new RegExp(attr + '="([^"]*)"','i');
+      const regex = new RegExp(attr + '=["\'](https?://[^"\']+)["\']', 'i');
       const match = imgTag.match(regex);
       if (match && match[1]) {
         // Found a valid URL
@@ -167,7 +167,7 @@ const extractor = {
       if (html.includes("list-story-item")) {
         console.log("Detected new listing page format (list-story-item)");
         // New format: class="list-story-item bookmark_check cover"
-        const mangaBlocks = html.split(/class=\"list-story-item[^\"]*\"/);
+        const mangaBlocks = html.split(/class=["']list-story-item[^"']*["']/);
 
         // Skip first element as it's before the first manga item
         for (let i = 1; i < mangaBlocks.length; i++) {
@@ -177,7 +177,7 @@ const extractor = {
             const mangaHtml = block.substring(0, 3000);
 
             // Extract manga URL and title from the first href with title attribute
-            const urlMatch = mangaHtml.match(/href=\"([^"\\]*mangakakalot[^"\\]*\/manga\/[^"\\]*)\"\s+title=\"([^\"]*)\"/i);
+            const urlMatch = mangaHtml.match(/href=["']([^"']*mangakakalot[^"']*\/manga\/[^"']*)["']\s+title=["']([^"']*)["']/i);
             let url = "", title = "";
 
             if (urlMatch) {
@@ -185,7 +185,7 @@ const extractor = {
               title = urlMatch[2];
             } else {
               // Try h3 pattern
-              const titleMatch = mangaHtml.match(/<h3>\s*<a\s+href=\"([^\"]*)\"[^>]*title=\"([^\"]*)\"/is);
+              const titleMatch = mangaHtml.match(/<h3>\s*<a\s+href=["']([^"']*)["'][^>]*title=["']([^"']*)["']/is);
               if (titleMatch) {
                 url = titleMatch[1];
                 title = titleMatch[2];
@@ -205,14 +205,15 @@ const extractor = {
             // Extract chapter info
             let lastChapter = "", lastChapterId = "";
             // Look for the anchor tag with the specific class or just any chapter link
-            const chapterTagMatch = mangaHtml.match(/<a[^>]*class=\"[^"']*(?:list-story-item-wrap-chapter|sts)[^"']*[^>]*>([\s\S]*?)<\/a>/i) ||
-                                    mangaHtml.match(/<a[^>]*href=\"([^"']*(?:chapter-|story\/[^"']+\/)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/i);
+            const chapterTagMatch = mangaHtml.match(/<a[^>]*class=["'][^"']*(?:list-story-item-wrap-chapter|sts)[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) ||
+                                    mangaHtml.match(/<a[^>]*href=["']([^"']*(?:chapter-|story\/[^"']+\/)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/i);
             
             if (chapterTagMatch) {
               const fullTag = chapterTagMatch[0];
-              lastChapter = this.cleanText(chapterTagMatch[1] || chapterTagMatch[2]);
+              // Prefer Group 2 (text content from URL-based regex) over Group 1 (text content from class-based regex)
+              lastChapter = this.cleanText(chapterTagMatch[2] || chapterTagMatch[1]);
               
-              const hrefMatch = fullTag.match(/href=\"([^\"]*)\"/i);
+              const hrefMatch = fullTag.match(/href=["']([^"']*)["']/i);
               if (hrefMatch) {
                 const chapterUrl = this.ensureAbsoluteUrl(hrefMatch[1]);
                 if (chapterUrl) {
@@ -262,7 +263,7 @@ const extractor = {
               coverUrl = this.extractImageUrl(imgTags[0]) || "";
             }
 
-            const urlMatch = mangaHtml.match(/href=\"([^\"]*)['"]\s+title=\"([^\"]*)\"/i);
+            const urlMatch = mangaHtml.match(/href=["']([^"']*)["']\s+title=["']([^"']*)["']/i);
             let url = "", title = "";
 
             if (urlMatch) {
@@ -274,14 +275,14 @@ const extractor = {
             
             // Extract chapter info
             let lastChapter = "", lastChapterId = "";
-            const chapterTagMatch = mangaHtml.match(/<a[^>]*class=\"[^"']*(?:list-story-item-wrap-chapter|sts)[^"']*[^>]*>([\s\S]*?)<\/a>/i) ||
-                                    mangaHtml.match(/<a[^>]*href=\"([^"']*(?:chapter-|story\/[^"']+\/)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/i);
+            const chapterTagMatch = mangaHtml.match(/<a[^>]*class=["'][^"']*(?:list-story-item-wrap-chapter|sts)[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) ||
+                                    mangaHtml.match(/<a[^>]*href=["']([^"']*(?:chapter-|story\/[^"']+\/)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/i);
             
             if (chapterTagMatch) {
               const fullTag = chapterTagMatch[0];
-              lastChapter = this.cleanText(chapterTagMatch[1] || chapterTagMatch[2]);
+              lastChapter = this.cleanText(chapterTagMatch[2] || chapterTagMatch[1]);
               
-              const hrefMatch = fullTag.match(/href=\"([^\"]*)\"/i);
+              const hrefMatch = fullTag.match(/href=["']([^"']*)["']/i);
               if (hrefMatch) {
                 const chapterUrl = this.ensureAbsoluteUrl(hrefMatch[1]);
                 if (chapterUrl) {
@@ -710,7 +711,7 @@ const extractor = {
               imgTag.includes('class="chapter-img"') ||
               imgTag.includes('class="page"') ||
               imgTag.includes('alt="page"') ||  // Added new indicator
-              imgTag.includes('onerror="this.onerror=null;this.src="')) {  // Added new indicator for fallback images
+              imgTag.includes('onerror="this.onerror=null;this.src=')) {  // Added new indicator for fallback images
             
             const imageUrl = this.extractImageUrl(imgTag);
             
