@@ -1,8 +1,8 @@
-// MangaKakalot Extractor v1.6.0
+// MangaKakalot Extractor v1.7.0
 var extractor = {
   id: "mangakakalot",
   name: "MangaKakalot",
-  version: "1.6.0",
+  version: "1.7.0",
   baseUrl: "https://www.mangakakalot.gg",
   icon: "https://www.mangakakalot.gg/favicon.ico",
   imageproxy: "",  // Disabled image proxy to use direct connections
@@ -312,6 +312,71 @@ var extractor = {
             }
           } catch (e) {
             console.error("Error parsing manga item", e);
+          }
+        }
+      } else if (html.includes("story_item")) {
+        // Search page format: <div class="story_item">
+        console.log("Detected search page format (story_item)");
+        const mangaBlocks = html.split(/class=["']story_item["']/);
+
+        for (let i = 1; i < mangaBlocks.length; i++) {
+          try {
+            const block = mangaBlocks[i];
+            const mangaHtml = block.substring(0, 3000);
+
+            // Extract cover from first img tag
+            let coverUrl = "";
+            const imgMatch = mangaHtml.match(/<img[^>]*>/i);
+            if (imgMatch) {
+              coverUrl = this.extractImageUrl(imgMatch[0]) || "";
+            }
+
+            // Extract title and URL from h3.story_name > a
+            let url = "", title = "";
+            const titleMatch = mangaHtml.match(/<h3[^>]*class=["']story_name["'][^>]*>[\s\S]*?<a[^>]*href=["']([^"']*)["'][^>]*>([^<]*)<\/a>/i);
+            if (titleMatch) {
+              url = titleMatch[1];
+              title = this.cleanText(titleMatch[2]);
+            }
+
+            // Extract latest chapter from em.story_chapter > a
+            let lastChapter = "", lastChapterId = "";
+            const chapterMatch = mangaHtml.match(/<em[^>]*class=["']story_chapter["'][^>]*>[\s\S]*?<a[^>]*href=["']([^"']*)["'][^>]*title=["']([^"']*)["'][^>]*>/i);
+            if (chapterMatch) {
+              const chapterUrl = chapterMatch[1];
+              lastChapter = chapterMatch[2];
+              // Extract chapter ID from URL
+              if (chapterUrl) {
+                const urlParts = chapterUrl.split("/");
+                lastChapterId = urlParts[urlParts.length - 1] || "";
+                lastChapterId = lastChapterId.split("?")[0];
+              }
+            }
+
+            // Make sure URL is absolute
+            url = this.ensureAbsoluteUrl(url);
+
+            // Extract ID from URL
+            let id = "";
+            if (url) {
+              const urlParts = url.split("/");
+              id = urlParts[urlParts.length - 1] || "";
+              id = id.split("?")[0];
+            }
+
+            if (title && url && id) {
+              console.log("Found manga: " + title);
+              items.push({
+                id: id,
+                title: title,
+                cover: coverUrl,
+                url: url,
+                lastChapter: lastChapter,
+                lastChapterId: lastChapterId
+              });
+            }
+          } catch (e) {
+            console.error("Error parsing search item", e);
           }
         }
       } else if (html.includes("itemupdate")) {

@@ -1,0 +1,114 @@
+{
+  "timestamp": "2025-12-27T06:51:33.594Z",
+  "source": "mangakakalot",
+  "extractorVersion": "1.6.0",
+  "mangaList": {
+    "success": true,
+    "itemCount": 24,
+    "sampleItems": [
+      {
+        "id": "houkago-himitsu-club",
+        "title": "Houkago Himitsu Club",
+        "cover": "https://img-r1.2xstorage.com/thumb/houkago-himitsu-club.webp",
+        "url": "https://www.mangakakalot.gg/manga/houkago-himitsu-club",
+        "lastChapter": "Chapter 44",
+        "lastChapterId": "chapter-44"
+      },
+      {
+        "id": "emergency-youth-record-book",
+        "title": "Emergency! Youth Record Book",
+        "cover": "https://img-r1.2xstorage.com/thumb/emergency-youth-record-book.webp",
+        "url": "https://www.mangakakalot.gg/manga/emergency-youth-record-book",
+        "lastChapter": "Chapter 37",
+        "lastChapterId": "chapter-37"
+      },
+      {
+        "id": "the-reborn-witch-raises-a-templar",
+        "title": "The Reborn Witch Raises A Templar",
+        "cover": "https://img-r1.2xstorage.com/thumb/the-reborn-witch-raises-a-templar.webp",
+        "url": "https://www.mangakakalot.gg/manga/the-reborn-witch-raises-a-templar",
+        "lastChapter": "Chapter 46",
+        "lastChapterId": "chapter-46"
+      },
+      {
+        "id": "i-m-quitting-the-hero-s-party",
+        "title": "I&#039;m Quitting The Hero&#039;s Party",
+        "cover": "https://img-r1.2xstorage.com/thumb/i-m-quitting-the-hero-s-party.webp",
+        "url": "https://www.mangakakalot.gg/manga/i-m-quitting-the-hero-s-party",
+        "lastChapter": "Chapter 93",
+        "lastChapterId": "chapter-93"
+      },
+      {
+        "id": "i-won-t-fall-for-him-just-because-of-his-face",
+        "title": "I Won&#039;t Fall For Him Just Because Of His Face",
+        "cover": "https://img-r1.2xstorage.com/thumb/i-won-t-fall-for-him-just-because-of-his-face.webp",
+        "url": "https://www.mangakakalot.gg/manga/i-won-t-fall-for-him-just-because-of-his-face",
+        "lastChapter": "Chapter 55.2",
+        "lastChapterId": "chapter-55-2"
+      }
+    ]
+  },
+  "searchPage": {
+    "success": true,
+    "itemCount": 20,
+    "sampleItems": [
+      {
+        "id": "xxx-buddy",
+        "title": "Xxx Buddy",
+        "cover": "https://img-r1.2xstorage.com/thumb/xxx-buddy.webp",
+        "url": "https://www.mangakakalot.gg/manga/xxx-buddy",
+        "lastChapter": "Chapter 117",
+        "lastChapterId": "chapter-117"
+      },
+      {
+        "id": "wangpai-xiao-cao",
+        "title": "Wangpai Xiao Cao",
+        "cover": "https://imgs-2.2xstorage.com/thumb/wangpai-xiao-cao.webp",
+        "url": "https://www.mangakakalot.gg/manga/wangpai-xiao-cao",
+        "lastChapter": "Chapter 349",
+        "lastChapterId": "chapter-349"
+      },
+      {
+        "id": "invincible-xueba-system",
+        "title": "Invincible Xueba System",
+        "cover": "https://imgs-2.2xstorage.com/thumb/invincible-xueba-system.webp",
+        "url": "https://www.mangakakalot.gg/manga/invincible-xueba-system",
+        "lastChapter": "Chapter 73",
+        "lastChapterId": "chapter-73"
+      },
+      {
+        "id": "qin-xia",
+        "title": "Qin Xia",
+        "cover": "https://imgs-2.2xstorage.com/thumb/qin-xia.webp",
+        "url": "https://www.mangakakalot.gg/manga/qin-xia",
+        "lastChapter": "Chapter 88",
+        "lastChapterId": "chapter-88"
+      },
+      {
+        "id": "i-was-reborn-as-the-villainess-father-and-i-need-xxx-to-survive",
+        "title": "I Was Reborn As The Villainess&#039; Father And I Need Xxx To Survive!?",
+        "cover": "https://imgs-2.2xstorage.com/thumb/i-was-reborn-as-the-villainess-father-and-i-need-xxx-to-survive.webp",
+        "url": "https://www.mangakakalot.gg/manga/i-was-reborn-as-the-villainess-father-and-i-need-xxx-to-survive",
+        "lastChapter": "Chapter 120",
+        "lastChapterId": "chapter-120"
+      }
+    ]
+  },
+  "mangaDetails": {
+    "success": true,
+    "title": "The War of Corpses",
+    "chapterCount": 15
+  },
+  "chapterImages": {
+    "success": true,
+    "imageCount": 105,
+    "sampleImages": [
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/0.webp",
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/1.webp",
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/2.webp",
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/3.webp",
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/4.webp"
+    ]
+  },
+  "allPassed": true
+}

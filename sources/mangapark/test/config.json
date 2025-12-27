@@ -1,0 +1,6 @@
+{
+  "list": "/latest",
+  "manga": "/comic/12345",
+  "chapter": "/comic/12345/1",
+  "search-page": "/search?keyword=x&page=1"
+}

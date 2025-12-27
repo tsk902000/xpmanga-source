@@ -1,19 +1,89 @@
-// Generic test script for all extractors
-// Run with: node debug/test_generic_extractor.js
+// Generic test script for extractors
+// Run with: node debug/test_generic_extractor.js <source-name>
+// Example: node debug/test_generic_extractor.js mangakakalot
 
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
 
-// Load all sources configuration
-console.log('Loading sources configuration...');
-const allSourcesPath = path.join(__dirname, '..', 'all_source.json');
-const allSourcesConfig = JSON.parse(fs.readFileSync(allSourcesPath, 'utf8'));
-console.log(`Found ${allSourcesConfig.sources.length} sources to test`);
+// Get source name from command line argument
+const args = process.argv.slice(2);
+if (args.length === 0) {
+  console.error('Error: Please specify a source name');
+  console.error('Usage: node debug/test_generic_extractor.js <source-name>');
+  console.error('Example: node debug/test_generic_extractor.js mangakakalot');
+  console.error('\nAvailable sources:');
+  
+  // List available sources
+  const sourcesDir = path.join(__dirname, '..', 'sources');
+  if (fs.existsSync(sourcesDir)) {
+    const sources = fs.readdirSync(sourcesDir, { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => dirent.name);
+    sources.forEach(source => console.error(`  - ${source}`));
+  }
+  
+  process.exit(1);
+}
+
+const mangaSource = args[0];
+const sourcePath = path.join(__dirname, '..', 'sources', mangaSource);
+
+// Check if source directory exists
+if (!fs.existsSync(sourcePath)) {
+  console.error(`Error: Source '${mangaSource}' not found in sources/ directory`);
+  process.exit(1);
+}
+
+// Load meta.json
+const metaPath = path.join(sourcePath, 'meta.json');
+if (!fs.existsSync(metaPath)) {
+  console.error(`Error: meta.json not found for source '${mangaSource}'`);
+  process.exit(1);
+}
+
+const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+console.log(`Loading ${meta.name} extractor...`);
+
+// Load extractor
+const extractorPath = path.join(sourcePath, 'extract.js');
+if (!fs.existsSync(extractorPath)) {
+  console.error(`Error: extract.js not found for source '${mangaSource}'`);
+  process.exit(1);
+}
+
+const extractorCode = fs.readFileSync(extractorPath, 'utf8');
+eval(extractorCode);
+console.log(`Loaded extractor version: ${extractor.version}`);
+console.log(`Base URL: ${extractor.baseUrl}`);
+
+// Load test config from sources/<source>/test/config.json
+const testConfigPath = path.join(sourcePath, 'test', 'config.json');
+if (!fs.existsSync(testConfigPath)) {
+  console.error(`Error: test/config.json not found for source '${mangaSource}'`);
+  console.error(`Expected path: ${testConfigPath}`);
+  process.exit(1);
+}
+
+const testConfig = JSON.parse(fs.readFileSync(testConfigPath, 'utf8'));
+const baseUrl = meta.baseUrl.replace(/\/$/, '');
+
+// Combine baseUrl with test config paths
+const testListUrl = baseUrl + (testConfig.list.startsWith('/') ? '' : '/') + testConfig.list;
+const testSearchPageUrl = baseUrl + (testConfig['search-page'].startsWith('/') ? '' : '/') + testConfig['search-page'];
+const testMangaUrl = baseUrl + (testConfig.manga.startsWith('/') ? '' : '/') + testConfig.manga;
+const testChapterUrl = baseUrl + (testConfig.chapter.startsWith('/') ? '' : '/') + testConfig.chapter;
+const referer = meta.imageReferer || meta.baseUrl;
+
+console.log(`Test URLs loaded from ${testConfigPath}`);
+console.log(`List URL: ${testListUrl}`);
+console.log(`Search Page URL: ${testSearchPageUrl}`);
+console.log(`Manga URL: ${testMangaUrl}`);
+console.log(`Chapter URL: ${testChapterUrl}`);
 
 // Function to fetch HTML content
-async function fetchHtml(url, referer) {
+async function fetchHtml(url) {
   console.log(`Fetching HTML from: ${url}`);
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https') ? https : http;
@@ -21,7 +91,7 @@ async function fetchHtml(url, referer) {
     const options = {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
-        ...(referer && { 'Referer': referer })
+        'Referer': referer
       }
     };
 
@@ -47,7 +117,7 @@ async function fetchHtml(url, referer) {
 }
 
 // Function to check if an image is accessible
-async function checkImageAccessibility(imageUrl, referer) {
+async function checkImageAccessibility(imageUrl) {
   return new Promise((resolve, reject) => {
     const client = imageUrl.startsWith('https') ? https : http;
 
@@ -55,7 +125,7 @@ async function checkImageAccessibility(imageUrl, referer) {
       method: 'HEAD',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
-        ...(referer && { 'Referer': referer })
+        'Referer': referer
       }
     };
 
@@ -71,94 +141,12 @@ async function checkImageAccessibility(imageUrl, referer) {
   });
 }
 
-// Load a source's meta.json
-function loadSourceMeta(metaUrl) {
-  // Check if it's a local path or URL
-  if (metaUrl.startsWith('http')) {
-    // For now, we'll use local paths since we're testing locally
-    // Extract source name from URL
-    const match = metaUrl.match(/sources\/([^\/]+)\/meta\.json/);
-    if (match) {
-      const sourceName = match[1];
-      const localMetaPath = path.join(__dirname, '..', 'sources', sourceName, 'meta.json');
-      if (fs.existsSync(localMetaPath)) {
-        return JSON.parse(fs.readFileSync(localMetaPath, 'utf8'));
-      }
-    }
-    throw new Error(`Could not find local meta.json for ${metaUrl}`);
-  } else {
-    return JSON.parse(fs.readFileSync(metaUrl, 'utf8'));
-  }
-}
-
-// Load a source's extractor
-function loadExtractor(meta) {
-  const scriptUrl = meta.script;
-  let extractorPath;
-
-  if (scriptUrl.startsWith('http')) {
-    // Extract source name from URL
-    const match = scriptUrl.match(/sources\/([^\/]+)\/extract\.js/);
-    if (match) {
-      const sourceName = match[1];
-      extractorPath = path.join(__dirname, '..', 'sources', sourceName, 'extract.js');
-    } else {
-      throw new Error(`Could not determine extractor path from ${scriptUrl}`);
-    }
-  } else {
-    extractorPath = scriptUrl;
-  }
-
-  if (!fs.existsSync(extractorPath)) {
-    throw new Error(`Extractor not found at ${extractorPath}`);
-  }
-
-  const extractorCode = fs.readFileSync(extractorPath, 'utf8');
-  eval(extractorCode);
-  return extractor;
-}
-
-// Get test URLs for a source (can be customized per source)
-function getTestUrls(meta) {
-  const baseUrl = meta.baseUrl.replace(/\/$/, '');
-  
-  // Default test URLs - these can be overridden per source
-  const testUrls = {
-    mangakakalot: {
-      list: `${baseUrl}/manga-list/latest-manga`,
-      manga: `${baseUrl}/manga/the-war-of-corpses/`,
-      chapter: `${baseUrl}/manga/the-war-of-corpses/chapter-7`
-    },
-    mangapark: {
-      list: `${baseUrl}/search?q=`,
-      manga: `${baseUrl}/comic/12345`, // Placeholder - will need real URL
-      chapter: `${baseUrl}/comic/12345/1` // Placeholder - will need real URL
-    }
-  };
-
-  // Try to match source name (case insensitive)
-  const sourceName = Object.keys(testUrls).find(key => 
-    meta.name.toLowerCase().includes(key.toLowerCase())
-  );
-
-  if (sourceName) {
-    return testUrls[sourceName];
-  }
-
-  // Fallback to generic pattern
-  return {
-    list: `${baseUrl}/manga-list`,
-    manga: `${baseUrl}/manga/test`,
-    chapter: `${baseUrl}/manga/test/chapter-1`
-  };
-}
-
 // Test manga list extraction
-async function testMangaListExtraction(listUrl, extractor, referer) {
+async function testMangaListExtraction(listUrl) {
   try {
     console.log(`\n=== Testing manga list extraction for: ${listUrl} ===\n`);
 
-    const html = await fetchHtml(listUrl, referer);
+    const html = await fetchHtml(listUrl);
     console.log('Parsing manga list...');
     const result = extractor.parseMangaList(html);
 
@@ -196,12 +184,55 @@ async function testMangaListExtraction(listUrl, extractor, referer) {
   }
 }
 
+// Test search page items extraction
+async function testSearchPageExtraction(searchPageUrl) {
+  try {
+    console.log(`\n=== Testing search page items extraction for: ${searchPageUrl} ===\n`);
+
+    const html = await fetchHtml(searchPageUrl);
+    console.log('Parsing search page items...');
+    const result = extractor.parseMangaList(html);
+
+    console.log(`\nExtraction success: ${result.success}`);
+    console.log(`Found ${result.items.length} manga items`);
+
+    if (result.items.length > 0) {
+      console.log('\nFirst 5 manga items:');
+      for (let i = 0; i < Math.min(5, result.items.length); i++) {
+        const item = result.items[i];
+        console.log(`${i + 1}. ${item.title}`);
+        console.log(`   URL: ${item.url}`);
+        console.log(`   Cover: ${item.cover}`);
+        console.log(`   Latest Chapter: ${item.lastChapter} (${item.lastChapterId})`);
+        
+        if (!item.lastChapter) {
+            console.warn(`   WARNING: Missing latestChapter for ${item.title}`);
+        }
+      }
+    }
+
+    return {
+      success: result.success,
+      itemCount: result.items.length,
+      items: result.items
+    };
+  } catch (error) {
+    console.error('Test failed with error:', error);
+    return {
+      success: false,
+      itemCount: 0,
+      items: [],
+      error: error.message
+    };
+  }
+}
+
 // Test manga details extraction
-async function testMangaDetailsExtraction(mangaUrl, extractor, referer) {
+async function testMangaDetailsExtraction(mangaUrl) {
   try {
     console.log(`\n=== Testing manga details extraction for: ${mangaUrl} ===\n`);
 
-    const html = await fetchHtml(mangaUrl, referer);
+    const html = await fetchHtml(mangaUrl);
     console.log('Parsing manga details...');
     const result = extractor.parseMangaDetails(html);
 
@@ -236,11 +267,11 @@ async function testMangaDetailsExtraction(mangaUrl, extractor, referer) {
 }
 
 // Test chapter image extraction
-async function testChapterImageExtraction(chapterUrl, extractor, referer) {
+async function testChapterImageExtraction(chapterUrl) {
   try {
     console.log(`\n=== Testing image extraction for: ${chapterUrl} ===\n`);
 
-    const html = await fetchHtml(chapterUrl, referer);
+    const html = await fetchHtml(chapterUrl);
     console.log('Parsing chapter images...');
     const result = extractor.parseChapterImages(html);
 
@@ -258,7 +289,7 @@ async function testChapterImageExtraction(chapterUrl, extractor, referer) {
       for (let i = 0; i < Math.min(3, result.images.length); i++) {
         try {
           const imageUrl = result.images[i];
-          const isAccessible = await checkImageAccessibility(imageUrl, referer);
+          const isAccessible = await checkImageAccessibility(imageUrl);
           console.log(`Image ${i + 1}: ${isAccessible ? 'Accessible' : 'Not accessible'}`);
         } catch (e) {
           console.log(`Image ${i + 1}: Error checking accessibility - ${e.message}`);
@@ -282,128 +313,77 @@ async function testChapterImageExtraction(chapterUrl, extractor, referer) {
   }
 }
 
-// Test a single source
-async function testSource(metaUrl) {
-  const results = {
-    source: null,
-    meta: null,
-    tests: null,
-    passed: false,
-    error: null
-  };
-
-  try {
-    console.log('\n' + '='.repeat(60));
-    console.log(`Testing source: ${metaUrl}`);
-    console.log('='.repeat(60));
-
-    // Load meta and extractor
-    const meta = loadSourceMeta(metaUrl);
-    results.meta = meta;
-    results.source = meta.name;
-
-    console.log(`\nLoading ${meta.name} extractor...`);
-    const extractor = loadExtractor(meta);
-    console.log(`Loaded extractor version: ${extractor.version}`);
-    console.log(`Base URL: ${extractor.baseUrl}`);
-
-    // Get test URLs
-    const testUrls = getTestUrls(meta);
-    const referer = meta.imageReferer || meta.baseUrl;
-
-    // Run all tests
-    const listResult = await testMangaListExtraction(testUrls.list, extractor, referer);
-    const detailsResult = await testMangaDetailsExtraction(testUrls.manga, extractor, referer);
-    const imageResult = await testChapterImageExtraction(testUrls.chapter, extractor, referer);
-
-    // Print summary
-    console.log('\n' + '='.repeat(50));
-    console.log('=== Test Summary ===');
-    console.log('='.repeat(50));
-
-    const listPassed = listResult.success && listResult.itemCount > 0;
-    const detailsPassed = detailsResult.success && detailsResult.manga && detailsResult.manga.chapters.length > 0;
-    const imagesPassed = imageResult.success && imageResult.imageCount > 0;
-
-    console.log(`Manga List Extraction:    ${listPassed ? 'PASSED' : 'FAILED'} (${listResult.itemCount} items)`);
-    console.log(`Manga Details Extraction: ${detailsPassed ? 'PASSED' : 'FAILED'} (${detailsResult.manga ? detailsResult.manga.chapters.length : 0} chapters)`);
-    console.log(`Chapter Image Extraction: ${imagesPassed ? 'PASSED' : 'FAILED'} (${imageResult.imageCount} images)`);
-
-    const allPassed = listPassed && detailsPassed && imagesPassed;
-    console.log('\n' + '='.repeat(50));
-    console.log(`Overall: ${allPassed ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED'}`);
-    console.log('='.repeat(50));
-
-    results.tests = {
-      list: listResult,
-      details: detailsResult,
-      images: imageResult,
-      allPassed: allPassed
-    };
-    results.passed = allPassed;
-
-  } catch (error) {
-    console.error(`\nError testing source ${metaUrl}:`, error);
-    results.error = error.message;
-    results.passed = false;
-  }
-
-  return results;
-}
-
 // Main test function
-async function runAllTests() {
-  console.log('=== Generic Extractor Test Suite ===');
-  console.log(`Testing ${allSourcesConfig.sources.length} sources`);
-  console.log(`Started at: ${new Date().toISOString()}`);
+async function runTests() {
+  console.log(`=== ${meta.name} Extractor Test ===`);
+  console.log(`Extractor version: ${extractor.version}`);
+  console.log(`Base URL: ${extractor.baseUrl}`);
 
-  const allResults = [];
+  // Run all tests
+  const listResult = await testMangaListExtraction(testListUrl);
+  const searchPageResult = await testSearchPageExtraction(testSearchPageUrl);
+  const detailsResult = await testMangaDetailsExtraction(testMangaUrl);
+  const imageResult = await testChapterImageExtraction(testChapterUrl);
 
-  // Test each source
-  for (const metaUrl of allSourcesConfig.sources) {
-    const result = await testSource(metaUrl);
-    allResults.push(result);
-  }
+  // Print summary
+  console.log('\n' + '='.repeat(50));
+  console.log('=== Test Summary ===');
+  console.log('='.repeat(50));
 
-  // Print overall summary
-  console.log('\n\n' + '='.repeat(60));
-  console.log('=== OVERALL SUMMARY ===');
-  console.log('='.repeat(60));
+  const listPassed = listResult.success && listResult.itemCount > 0;
+  const searchPagePassed = searchPageResult.success && searchPageResult.itemCount > 0;
+  const detailsPassed = detailsResult.success && detailsResult.manga && detailsResult.manga.chapters.length > 0;
+  const imagesPassed = imageResult.success && imageResult.imageCount > 0;
 
-  let passedCount = 0;
-  for (const result of allResults) {
-    const status = result.passed ? '✓ PASSED' : '✗ FAILED';
-    console.log(`${result.source}: ${status}`);
-    if (result.error) {
-      console.log(`  Error: ${result.error}`);
-    }
-    if (result.passed) {
-      passedCount++;
-    }
-  }
+  console.log(`Manga List Extraction:     ${listPassed ? 'PASSED' : 'FAILED'} (${listResult.itemCount} items)`);
+  console.log(`Search Page Extraction:    ${searchPagePassed ? 'PASSED' : 'FAILED'} (${searchPageResult.itemCount} items)`);
+  console.log(`Manga Details Extraction:  ${detailsPassed ? 'PASSED' : 'FAILED'} (${detailsResult.manga ? detailsResult.manga.chapters.length : 0} chapters)`);
+  console.log(`Chapter Image Extraction:  ${imagesPassed ? 'PASSED' : 'FAILED'} (${imageResult.imageCount} images)`);
 
-  console.log('\n' + '='.repeat(60));
-  console.log(`Total: ${passedCount}/${allResults.length} sources passed`);
-  console.log('='.repeat(60));
+  const allPassed = listPassed && searchPagePassed && detailsPassed && imagesPassed;
+  console.log('\n' + '='.repeat(50));
+  console.log(`Overall: ${allPassed ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED'}`);
+  console.log('='.repeat(50));
 
-  // Write results to file
-  const resultsPath = path.join(__dirname, 'generic_test_results.json');
-  const output = {
+  // Write results to file for reference
+  const results = {
     timestamp: new Date().toISOString(),
-    totalSources: allResults.length,
-    passedSources: passedCount,
-    results: allResults
+    source: mangaSource,
+    extractorVersion: extractor.version,
+    mangaList: {
+      success: listResult.success,
+      itemCount: listResult.itemCount,
+      sampleItems: listResult.items.slice(0, 5)
+    },
+    searchPage: {
+      success: searchPageResult.success,
+      itemCount: searchPageResult.itemCount,
+      sampleItems: searchPageResult.items.slice(0, 5)
+    },
+    mangaDetails: {
+      success: detailsResult.success,
+      title: detailsResult.manga ? detailsResult.manga.title : null,
+      chapterCount: detailsResult.manga ? detailsResult.manga.chapters.length : 0
+    },
+    chapterImages: {
+      success: imageResult.success,
+      imageCount: imageResult.imageCount,
+      sampleImages: imageResult.images.slice(0, 5)
+    },
+    allPassed: allPassed
   };
-  fs.writeFileSync(resultsPath, JSON.stringify(output, null, 2));
+
+  const resultsPath = path.join(__dirname, `${mangaSource}_test_results.json`);
+  fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2));
   console.log(`\nTest results saved to ${resultsPath}`);
 
-  return passedCount === allResults.length;
+  return allPassed;
 }
 
 // Run the tests
-runAllTests()
-  .then(allPassed => {
-    process.exit(allPassed ? 0 : 1);
+runTests()
+  .then(passed => {
+    process.exit(passed ? 0 : 1);
   })
   .catch(error => {
     console.error('Fatal error:', error);
