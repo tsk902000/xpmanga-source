@@ -167,14 +167,14 @@ var extractor = {
       if (html.includes("list-story-item")) {
         console.log("Detected new listing page format (list-story-item)");
         // New format: class="list-story-item bookmark_check cover"
-        const mangaBlocks = html.split(/class=["']list-story-item[^"']*["']/);
+        const mangaBlocks = html.split(/class=["']list-story-item(?:\s[^"']*)?["']/);
 
         // Skip first element as it's before the first manga item
         for (let i = 1; i < mangaBlocks.length; i++) {
           try {
             const block = mangaBlocks[i];
             // Use a large chunk of the block to ensure we get all info
-            const mangaHtml = block.substring(0, 3000);
+            const mangaHtml = block.substring(0, 10000);
 
             // Extract manga URL and title from the first href with title attribute
             const urlMatch = mangaHtml.match(/href=["']([^"']*mangakakalot[^"']*\/manga\/[^"']*)["']\s+title=["']([^"']*)["']/i);
@@ -255,7 +255,7 @@ var extractor = {
         for (let i = 1; i < mangaBlocks.length; i++) {
           try {
             const block = mangaBlocks[i];
-            const mangaHtml = block.substring(0, 3000);
+            const mangaHtml = block.substring(0, 10000);
 
             let coverUrl = "";
             const imgTags = mangaHtml.match(/<img[^>]*>/g);
@@ -321,7 +321,7 @@ var extractor = {
         for (let i = 1; i < mangaBlocks.length; i++) {
           try {
             const block = mangaBlocks[i];
-            const mangaHtml = block.substring(0, 3000);
+            const mangaHtml = block.substring(0, 10000);
 
             const titleMatch = mangaHtml.match(/<h3>\s*<a[^>]*href=\"([^\"]*)\"[^>]*title=\"([^\"]*)\"/i);
             let url = "", title = "";
