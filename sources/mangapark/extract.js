@@ -26,7 +26,7 @@ var extractor = {
 
   // Available categories
   categories: [
-    { id: "latest", name: "Latest", url: "/latest?page={page}" },
+    { id: "latest", name: "Latest", url: "/latest/{page}" },
   ],
 
   /**
@@ -83,7 +83,7 @@ var extractor = {
     }
     
     // Fallback to latest if category not found
-    return this.baseUrl + "/latest?page=" + page;
+    return this.baseUrl + "/latest/" + page;
   },
 
   /**
