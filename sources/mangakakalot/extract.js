@@ -323,9 +323,57 @@ var extractor = {
             const block = mangaBlocks[i];
             const mangaHtml = block.substring(0, 3000);
 
-            const titleMatch = mangaHtml.match(/<h3>\s*<a[^>]*href=\"([^\"]*)\
-```
-} catch (e) {
+            const titleMatch = mangaHtml.match(/<h3>\s*<a[^>]*href=\"([^\"]*)\"[^>]*title=\"([^\"]*)\"/i);
+            let url = "", title = "";
+
+            if (titleMatch) {
+              url = titleMatch[1];
+              title = titleMatch[2];
+            }
+
+            // Extract cover URL from img tag
+            let coverUrl = "";
+            const imgMatch = mangaHtml.match(/<img[^>]*>/i);
+            if (imgMatch) {
+              coverUrl = this.extractImageUrl(imgMatch[0]) || "";
+            }
+
+            url = this.ensureAbsoluteUrl(url);
+
+            // Extract chapter info
+            let lastChapter = "", lastChapterId = "";
+            const chapterTagMatch = mangaHtml.match(/<a[^>]*class=\"sts\"[^>]*>([\s\S]*?)<\/a>/i);
+            
+            if (chapterTagMatch) {
+              lastChapter = this.cleanText(chapterTagMatch[1]);
+              const hrefMatch = chapterTagMatch[0].match(/href=["']([^"']*)["']/i);
+              if (hrefMatch) {
+                const chapterUrl = this.ensureAbsoluteUrl(hrefMatch[1]);
+                if (chapterUrl) {
+                  const urlParts = chapterUrl.split("/");
+                  lastChapterId = urlParts[urlParts.length - 1] || "";
+                  lastChapterId = lastChapterId.split("?")[0];
+                }
+              }
+            }
+
+            let id = "";
+            if (url) {
+              const urlParts = url.split("/");
+              id = urlParts[urlParts.length - 1] || "";
+              id = id.split("?")[0];
+            }
+
+            if (title && url) {
+              items.push({
+                id: id,
+                title: title,
+                cover: coverUrl,
+                url: url,
+                lastChapter: lastChapter,
+                lastChapterId: lastChapterId
+              });
+            }
             console.error("Error parsing manga item", e);
           }
         }
