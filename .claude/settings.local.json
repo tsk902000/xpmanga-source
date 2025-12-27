@@ -5,7 +5,8 @@
       "Bash(powershell -Command \"Get-Content ''D:\\\\Work\\\\xpmanga\\\\xpmanga-source\\\\sources\\\\mangapark\\\\example-chapter-pages.html'' -Raw | ForEach-Object { $_Substring\\(0, [Math]::Min\\(20000, $_Length\\)\\) }\")",
       "Bash(powershell -Command \"\\(Get-Content ''D:\\\\Work\\\\xpmanga\\\\xpmanga-source\\\\sources\\\\mangapark\\\\example-manga-list.html'' -Raw\\) -match ''href=\"\"/title/[^\"\"]+\"\"'' | Out-Null; $matches | Select-Object -First 10\")",
       "Bash(powershell -Command:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(node debug/test_generic_extractor.js:*)"
     ]
   }
 }

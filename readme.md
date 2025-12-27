@@ -87,6 +87,12 @@ Some manga websites use Cloudflare or other anti-bot protection that blocks simp
 
 For more detailed documentation, see [`tools/README.md`](tools/README.md).
 
+
+# Test Cases to add
+1. Load Next page.
+2. Search feature.
+
+
 # Supported Sites
 
 ```

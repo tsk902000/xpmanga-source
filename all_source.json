@@ -3,6 +3,7 @@
     "type": "all",
     "sources": [
        "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/mangakakalot/meta.json",
-       "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/mangapark/meta.json"
+       "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/mangapark/meta.json",
+       "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/kissmanga/meta.json"
     ]
 }
