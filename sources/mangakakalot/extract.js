@@ -1,5 +1,5 @@
 // MangaKakalot Extractor v1.6.0
-const extractor = {
+var extractor = {
   id: "mangakakalot",
   name: "MangaKakalot",
   version: "1.6.0",
