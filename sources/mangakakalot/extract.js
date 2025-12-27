@@ -26,11 +26,10 @@ var extractor = {
   
   // Available categories for the source
   categories: [
-    { id: "latest", name: "Latest" },
-    { id: "popular", name: "Popular" },
-    { id: "completed", name: "Completed" },
-    { id: "new", name: "New Series" },
-    { id: "genre", name: "Genres" }
+    { id: "latest", name: "Latest", url: "/manga-list/latest-manga?page={page}" },
+    { id: "popular", name: "Popular", url: "/manga-list/hot-manga?page={page}" },
+    { id: "completed", name: "Completed", url: "/manga-list/completed-manga?page={page}" },
+    { id: "new", name: "New Series", url: "/manga-list/new-manga?page={page}" }
   ],
 
   /**
@@ -50,18 +49,16 @@ var extractor = {
   getListUrl: function(type, page) {
     if (page === undefined) page = 1;
     
-    switch (type) {
-      case 'latest':
-        return this.baseUrl + "/manga-list/latest-manga?page=" + page;
-      case 'popular':
-        return this.baseUrl + "/manga-list/hot-manga?page=" + page;
-      case 'completed':
-        return this.baseUrl + "/manga-list/completed-manga?page=" + page;
-      case 'new':
-        return this.baseUrl + "/manga-list/new-manga?page=" + page;
-      default:
-        return this.baseUrl + "/manga-list/latest-manga?page=" + page;
+    // Find the category by ID
+    const category = this.categories.find(c => c.id === type);
+    
+    if (category && category.url) {
+      // Replace placeholder and return absolute URL
+      return this.ensureAbsoluteUrl(category.url.replace("{page}", page));
     }
+    
+    // Fallback to latest if category not found
+    return this.baseUrl + "/manga-list/latest-manga?page=" + page;
   },
   
   /**

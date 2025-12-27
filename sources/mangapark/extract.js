@@ -26,9 +26,7 @@ var extractor = {
 
   // Available categories
   categories: [
-    { id: "latest", name: "Latest" },
-    { id: "trending", name: "Trending" },
-    { id: "newest", name: "Newest" }
+    { id: "latest", name: "Latest", url: "/latest?page={page}" },
   ],
 
   /**
@@ -75,12 +73,17 @@ var extractor = {
    */
   getListUrl: function(type, page) {
     if (page === undefined) page = 1;
-    switch (type) {
-      case 'latest':
-        return this.baseUrl + "/latest?page=" + page;
-      default:
-        return this.baseUrl + "/latest?page=" + page;
+    
+    // Find the category by ID
+    const category = this.categories.find(c => c.id === type);
+    
+    if (category && category.url) {
+      // Replace placeholder and return absolute URL
+      return this.ensureAbsoluteUrl(category.url.replace("{page}", page));
     }
+    
+    // Fallback to latest if category not found
+    return this.baseUrl + "/latest?page=" + page;
   },
 
   /**
