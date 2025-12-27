@@ -1,0 +1,67 @@
+{
+  "timestamp": "2025-12-27T02:32:01.466Z",
+  "extractorVersion": "1.6.0",
+  "mangaList": {
+    "success": true,
+    "itemCount": 24,
+    "sampleItems": [
+      {
+        "id": "quantum-matter-exploration-journal",
+        "title": "Quantum Matter Exploration Journal",
+        "cover": "https://img-r1.2xstorage.com/thumb/quantum-matter-exploration-journal.webp",
+        "url": "https://www.mangakakalot.gg/manga/quantum-matter-exploration-journal",
+        "lastChapter": "Chapter 1",
+        "lastChapterId": "chapter-1"
+      },
+      {
+        "id": "little-rabbit-and-the-big-bad-leopard",
+        "title": "Little Rabbit and the Big Bad Leopard",
+        "cover": "https://img-r1.2xstorage.com/thumb/little-rabbit-and-the-big-bad-leopard.webp",
+        "url": "https://www.mangakakalot.gg/manga/little-rabbit-and-the-big-bad-leopard",
+        "lastChapter": "Chapter 203",
+        "lastChapterId": "chapter-203"
+      },
+      {
+        "id": "onii-chan-is-done-for",
+        "title": "Onii-Chan Is Done For",
+        "cover": "https://img-r1.2xstorage.com/thumb/onii-chan-is-done-for.webp",
+        "url": "https://www.mangakakalot.gg/manga/onii-chan-is-done-for",
+        "lastChapter": "Chapter 107",
+        "lastChapterId": "chapter-107"
+      },
+      {
+        "id": "insanely-talented-player",
+        "title": "Insanely Talented Player",
+        "cover": "https://img-r1.2xstorage.com/thumb/insanely-talented-player.webp",
+        "url": "https://www.mangakakalot.gg/manga/insanely-talented-player",
+        "lastChapter": "Chapter 107",
+        "lastChapterId": "chapter-107"
+      },
+      {
+        "id": "sasha-chan-to-classmate-otaku-kun",
+        "title": "Sasha-chan to Classmate Otaku-kun",
+        "cover": "https://img-r1.2xstorage.com/thumb/sasha-chan-to-classmate-otaku-kun.webp",
+        "url": "https://www.mangakakalot.gg/manga/sasha-chan-to-classmate-otaku-kun",
+        "lastChapter": "Chapter 91",
+        "lastChapterId": "chapter-91"
+      }
+    ]
+  },
+  "mangaDetails": {
+    "success": true,
+    "title": "The War of Corpses",
+    "chapterCount": 15
+  },
+  "chapterImages": {
+    "success": true,
+    "imageCount": 105,
+    "sampleImages": [
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/0.webp",
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/1.webp",
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/2.webp",
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/3.webp",
+      "https://img-r1.2xstorage.com/the-war-of-corpses/7/4.webp"
+    ]
+  },
+  "allPassed": true
+}
