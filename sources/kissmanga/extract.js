@@ -26,10 +26,10 @@ var extractor = {
 
   // Available categories
   categories: [
-    { id: "latest", name: "Latest", url: "mangalist/?m_orderby=latest&page={page}" },
-    { id: "popular", name: "Popular", url: "mangalist/?m_orderby=views&page={page}" },
-    { id: "new", name: "New", url: "mangalist/?m_orderby=new-manga&page={page}" },
-    { id: "az", name: "A-Z", url: "mangalist/?m_orderby=alphabet&page={page}" }
+    { id: "latest", name: "Latest", url: "mangalist/page/{page}?m_orderby=latest" },
+    { id: "popular", name: "Popular", url: "mangalist/page/{page}?m_orderby=views" },
+    { id: "new", name: "New", url: "mangalist/page/{page}?m_orderby=new-manga" },
+    { id: "az", name: "A-Z", url: "mangalist/page/{page}?m_orderby=alphabet" }
   ],
 
   /**
