@@ -3,10 +3,10 @@ var extractor = {
   id: "mangapark",
   name: "MangaPark",
   version: "1.0.0",
-  baseUrl: "https://mangapark.net",
-  icon: "https://mangapark.net/favicon.ico",
+  baseUrl: "https://mangapark.io",
+  icon: "https://mangapark.io/favicon.ico",
   imageproxy: "",
-  imageReferer: "https://mangapark.net/",
+  imageReferer: "https://mangapark.io/",
   debug: true,
 
   // Rate limiting configuration
@@ -27,9 +27,8 @@ var extractor = {
   // Available categories
   categories: [
     { id: "latest", name: "Latest" },
-    { id: "popular", name: "Popular" },
-    { id: "completed", name: "Completed" },
-    { id: "new", name: "New Series" }
+    { id: "trending", name: "Trending" },
+    { id: "newest", name: "Newest" }
   ],
 
   /**
@@ -48,31 +47,27 @@ var extractor = {
    */
   cleanText: function(text) {
     if (!text) return "";
-    return text.replace(/<[^>]*>/g, "").trim();
+    return text.replace(/<[^>]*>/g, "").replace(/<!--[^>]*-->/g, "").trim();
   },
 
   /**
-   * Helper: Extract image URL from img tag
+   * Helper: Extract text between markers
    */
-  extractImageUrl: function(imgTag) {
-    if (!imgTag) return null;
+  findBetween: function(text, start, end) {
+    const startPos = text.indexOf(start);
+    if (startPos === -1) return "";
+    const endPos = end ? text.indexOf(end, startPos + start.length) : text.length;
+    if (endPos === -1) return "";
+    return text.substring(startPos + start.length, endPos);
+  },
 
-    const attributes = ["data-src", "data-original", "data-lazy-src", "src"];
-
-    for (let attr of attributes) {
-      const regex = new RegExp(attr + '=["\'](https?://[^"\']+)["\']', 'i');
-      const match = imgTag.match(regex);
-      if (match && match[1]) {
-        return match[1].trim();
-      }
-    }
-
-    const onerrorMatch = imgTag.match(/onerror="[^"]*this\.src='([^']+)'/);
-    if (onerrorMatch && onerrorMatch[1]) {
-      return this.ensureAbsoluteUrl(onerrorMatch[1]);
-    }
-
-    return null;
+  /**
+   * Helper: Extract attribute from HTML tag
+   */
+  extractAttribute: function(html, attrName) {
+    const regex = new RegExp(attrName + '=["\']([^"\']*)["\']', 'i');
+    const match = html.match(regex);
+    return match ? match[1] : "";
   },
 
   /**
@@ -80,18 +75,15 @@ var extractor = {
    */
   getListUrl: function(type, page) {
     if (page === undefined) page = 1;
-
     switch (type) {
       case 'latest':
-        return this.baseUrl + "/browse/latest?page=" + page;
-      case 'popular':
-        return this.baseUrl + "/browse/popular?page=" + page;
-      case 'completed':
-        return this.baseUrl + "/browse/completed?page=" + page;
-      case 'new':
-        return this.baseUrl + "/browse/new?page=" + page;
+        return this.baseUrl + "/browse?sort=update&page=" + page;
+      case 'trending':
+        return this.baseUrl + "/browse?sort=d007&page=" + page;
+      case 'newest':
+        return this.baseUrl + "/browse?sort=create&page=" + page;
       default:
-        return this.baseUrl + "/browse/latest?page=" + page;
+        return this.baseUrl + "/browse?sort=update&page=" + page;
     }
   },
 
@@ -100,7 +92,7 @@ var extractor = {
    */
   getSearchUrl: function(query, page) {
     if (page === undefined) page = 1;
-    return this.baseUrl + "/search?q=" + encodeURIComponent(query) + "&page=" + page;
+    return this.baseUrl + "/search?word=" + encodeURIComponent(query) + "&page=" + page;
   },
 
   /**
@@ -108,78 +100,68 @@ var extractor = {
    */
   getGenreUrl: function(genre, page) {
     if (page === undefined) page = 1;
-    return this.baseUrl + "/genre/" + encodeURIComponent(genre) + "?page=" + page;
+    return this.baseUrl + "/browse?genres=" + encodeURIComponent(genre) + "&page=" + page;
   },
 
   /**
    * Parse manga list from HTML
+   * Structure: <div class="flex border-b border-b-base-200 pb-3">
+   *   - Title in <h3 class="font-bold"><a href="/title/{id}-en-{slug}">{title}</a></h3>
+   *   - Cover in <img src="/thumb/W600/...">
+   *   - Chapter in <a href="/title/.../chapter-X">Chapter X</a>
    */
   parseMangaList: function(html) {
     try {
-      console.log("Starting to parse manga list");
+      if (this.debug) console.log("Starting to parse manga list");
       const items = [];
 
-      // MangaPark uses .item class for manga cards
-      const mangaBlocks = html.split(/class=["']item[^"']*["']/);
+      // Split by manga item containers
+      const mangaBlocks = html.split(/class="flex border-b border-b-base-200 pb-3"/);
 
-      // Skip first element as it's before the first manga item
       for (let i = 1; i < mangaBlocks.length; i++) {
         try {
           const block = mangaBlocks[i];
-          const mangaHtml = block.substring(0, 10000);
+          const mangaHtml = block.substring(0, 8000);
 
-          // Extract manga URL and title
-          const urlMatch = mangaHtml.match(/href=["']([^"']*comic\/[^"']*)["']\s+title=["']([^"']*)["']/i);
-          let url = "", title = "";
-
-          if (urlMatch) {
-            url = urlMatch[1];
-            title = urlMatch[2];
-          } else {
-            // Try alternative pattern
-            const altMatch = mangaHtml.match(/href=["']([^"']*comic\/[^"']*)["'][^>]*>([^<]+)<\/a>/i);
-            if (altMatch) {
-              url = altMatch[1];
-              title = this.cleanText(altMatch[2]);
-            }
+          // Extract title and URL from h3 > a with class="link-hover link-pri"
+          let title = "", url = "";
+          const titleMatch = mangaHtml.match(/<h3[^>]*class="font-bold[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]*)"[^>]*class="[^"]*link-hover[^"]*"[^>]*>[\s\S]*?<span[^>]*>(?:<!--[^>]*-->)?([^<]+)/i);
+          if (titleMatch) {
+            url = this.ensureAbsoluteUrl(titleMatch[1]);
+            title = this.cleanText(titleMatch[2]);
           }
 
-          // Extract cover URL from img tag
+          // Extract cover URL from img tag with /thumb/
           let coverUrl = "";
-          const imgMatch = mangaHtml.match(/<img[^>]*>/i);
+          const imgMatch = mangaHtml.match(/<img[^>]*src="([^"]*\/thumb\/[^"]*)"/i);
           if (imgMatch) {
-            coverUrl = this.extractImageUrl(imgMatch[0]) || "";
+            coverUrl = this.ensureAbsoluteUrl(imgMatch[1]);
           }
 
-          // Make sure URL is absolute
-          url = this.ensureAbsoluteUrl(url);
-
-          // Extract chapter info
+          // Extract last chapter info
           let lastChapter = "", lastChapterId = "";
-          const chapterMatch = mangaHtml.match(/class=["'][^"']*chapter[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+          const chapterMatch = mangaHtml.match(/<a[^>]*href="([^"]*\/\d+-(?:chapter-|ch-)[^"]*)"[^>]*class="[^"]*link-hover[^"]*"[^>]*>[\s\S]*?<span[^>]*>(?:<!--[^>]*-->)?([^<]+)/i);
           if (chapterMatch) {
-            const chapterLinkMatch = chapterMatch[1].match(/<a[^>]*href=["']([^"']*)["'][^>]*>([^<]+)<\/a>/i);
-            if (chapterLinkMatch) {
-              lastChapter = this.cleanText(chapterLinkMatch[2]);
-              const chapterUrl = this.ensureAbsoluteUrl(chapterLinkMatch[1]);
-              if (chapterUrl) {
-                const urlParts = chapterUrl.split("/");
-                lastChapterId = urlParts[urlParts.length - 1] || "";
-                lastChapterId = lastChapterId.split("?")[0];
-              }
+            const chapterUrl = chapterMatch[1];
+            lastChapter = this.cleanText(chapterMatch[2]);
+            // Extract chapter ID from URL (e.g., 9986018-chapter-107 -> 9986018-chapter-107)
+            const idMatch = chapterUrl.match(/\/(\d+-(?:chapter-|ch-)[^\/\?]+)/i);
+            if (idMatch) {
+              lastChapterId = idMatch[1];
             }
           }
 
-          // Extract ID from URL
+          // Extract manga ID from URL (e.g., /title/370724-en-insanely-talented-player -> 370724-en-insanely-talented-player)
           let id = "";
           if (url) {
-            const urlParts = url.split("/");
-            id = urlParts[urlParts.length - 1] || "";
-            id = id.split("?")[0];
+            const idMatch = url.match(/\/title\/([^\/\?]+)/i);
+            if (idMatch) {
+              id = idMatch[1];
+            }
           }
 
           if (title && url && id) {
-            console.log("Found manga: " + title + " with cover: " + (coverUrl || "none"));
+            if (this.debug) console.log("Found manga: " + title);
             items.push({
               id: id,
               title: title,
@@ -194,7 +176,7 @@ var extractor = {
         }
       }
 
-      console.log("Found " + items.length + " manga items");
+      if (this.debug) console.log("Found " + items.length + " manga items");
       return { success: true, items: items };
     } catch (e) {
       console.error("Failed to extract manga list", e);
@@ -204,147 +186,126 @@ var extractor = {
 
   /**
    * Parse manga details from HTML
+   * Structure:
+   *   - Title in <h3 class="text-lg md:text-2xl font-bold"><a>{title}</a></h3>
+   *   - Cover in <img src="/thumb/W600/...">
+   *   - Description in <div class="limit-html prose">
+   *   - Author in <a href="/search?word={author}">{author}</a>
+   *   - Status in <span class="font-bold uppercase text-success">{status}</span>
+   *   - Genres in <span class="whitespace-nowrap">{genre}</span>
+   *   - Chapters in <a href="/title/.../chapter-X">Chapter X</a>
    */
   parseMangaDetails: function(html) {
     try {
-      console.log("Starting to parse manga details");
+      if (this.debug) console.log("Starting to parse manga details");
 
       // Extract title
       let title = "";
-      const titleMatch = html.match(/<h1[^>]*>(.*?)<\/h1>/is);
+      const titleMatch = html.match(/<h3[^>]*class="[^"]*text-lg[^"]*font-bold[^"]*"[^>]*>[\s\S]*?<a[^>]*>(?:<!--[^>]*-->)?([^<]+)/i);
       if (titleMatch) {
         title = this.cleanText(titleMatch[1]);
       }
 
       // Extract cover
       let coverUrl = "";
-      const coverMatch = html.match(/class=["'][^"']*cover[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+      const coverMatch = html.match(/<img[^>]*src="([^"]*\/thumb\/W600\/[^"]*)"/i);
       if (coverMatch) {
-        const imgTag = coverMatch[1].match(/<img[^>]*>/i);
-        if (imgTag) {
-          coverUrl = this.extractImageUrl(imgTag[0]) || "";
-        }
+        coverUrl = this.ensureAbsoluteUrl(coverMatch[1]);
       }
 
-      // Extract description
+      // Extract description from limit-html prose div
       let description = "";
-      const descMatch = html.match(/class=["'][^"']*summary[^"']*["'][^>]*>([\s\S]*?)(?:<\/div>|<\/p>)/i);
+      const descMatch = html.match(/<div[^>]*class="[^"]*limit-html prose[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
       if (descMatch) {
         description = this.cleanText(descMatch[1]);
       }
 
-      // Extract author, status, and genres
-      let author = "", status = "";
+      // Extract author from search link
+      let author = "";
+      const authorMatch = html.match(/<a[^>]*href="\/search\?word=[^"]*"[^>]*class="[^"]*link-hover link-primary[^"]*"[^>]*>([^<]+)<\/a>/i);
+      if (authorMatch) {
+        author = this.cleanText(authorMatch[1]);
+      }
+
+      // Extract status
+      let status = "";
+      const statusMatch = html.match(/<span[^>]*class="[^"]*font-bold uppercase text-success[^"]*"[^>]*>([^<]+)<\/span>/i);
+      if (statusMatch) {
+        status = this.cleanText(statusMatch[1]);
+      }
+
+      // Extract genres
       const genres = [];
-
-      // Find info list
-      const infoListMatch = html.match(/class=["'][^"']*info[^"']*["'][^>]*>([\s\S]*?)<\/ul>/i);
-      if (infoListMatch) {
-        const infoList = infoListMatch[0];
-
-        // Extract author
-        const authorMatch = infoList.match(/<li[^>]*>Author[\s\S]*?<\/li>/i);
-        if (authorMatch) {
-          const authorLinks = authorMatch[0].match(/<a[^>]*>(.*?)<\/a>/g);
-          if (authorLinks) {
-            author = authorLinks.map(link => this.cleanText(link)).join(", ");
-          }
-        }
-
-        // Extract status
-        const statusMatch = infoList.match(/<li[^>]*>Status[\s\S]*?<\/li>/i);
-        if (statusMatch) {
-          status = this.cleanText(statusMatch[0].replace(/<[^>]*>/g, "").replace(/status|:/gi, "").trim());
-        }
-
-        // Extract genres
-        const genreMatch = infoList.match(/<li[^>]*>Genre[\s\S]*?<\/li>/i);
-        if (genreMatch) {
-          const genreLinks = genreMatch[0].match(/<a[^>]*>(.*?)<\/a>/g);
-          if (genreLinks) {
-            genreLinks.forEach(link => {
-              const genre = this.cleanText(link);
-              if (genre) {
+      const genreSection = this.findBetween(html, 'Genres:</b>', '</div>');
+      if (genreSection) {
+        const genreMatches = genreSection.match(/<span[^>]*class="[^"]*whitespace-nowrap[^"]*"[^>]*q:key="kd_0"[^>]*>(?:<!--[^>]*-->)?([^<]+)/gi);
+        if (genreMatches) {
+          genreMatches.forEach(function(match) {
+            const genreText = match.match(/>(?:<!--[^>]*-->)?([^<]+)/);
+            if (genreText && genreText[1]) {
+              const genre = genreText[1].trim();
+              if (genre && !genres.includes(genre)) {
                 genres.push(genre);
               }
-            });
-          }
+            }
+          });
         }
       }
 
       // Extract chapters
-      console.log("Extracting chapters");
       const chapters = [];
-
-      // Look for chapter list
-      const chapterListMatch = html.match(/class=["'][^"']*chapter-list[^"']*["'][^>]*>([\s\S]*?)(?:<\/div>\s*<\/div>|<div class=["'][^"']*panel)/i);
-      if (chapterListMatch) {
-        const chapterListHtml = chapterListMatch[1];
-
-        // Pattern to match chapter rows
-        const chapterRowPattern = /<a[^>]*href=["']([^"']*chapter[^"']*)["'][^>]*>([^<]+)<\/a>/gi;
-        const matches = [...chapterListHtml.matchAll(chapterRowPattern)];
-
-        for (const match of matches) {
+      // Match chapter links: <a href="/title/.../9985751-chapter-11"...>Chapter 11</a>
+      const chapterMatches = html.match(/<a[^>]*href="(\/title\/[^"]*\/\d+-(?:chapter-|ch-)[^"]*)"[^>]*>([^<]+)<\/a>/gi);
+      if (chapterMatches) {
+        const seenIds = {};
+        chapterMatches.forEach(function(match) {
           try {
-            const chapterUrl = this.ensureAbsoluteUrl(match[1]);
-            const displayTitle = this.cleanText(match[2]);
+            const urlMatch = match.match(/href="([^"]*)"/i);
+            const textMatch = match.match(/>([^<]+)<\/a>/i);
 
-            // Extract chapter ID from URL
-            let chapterId = "";
-            if (chapterUrl) {
-              const urlParts = chapterUrl.split("/");
-              chapterId = urlParts[urlParts.length - 1] || "";
-              chapterId = chapterId.split("?")[0];
-            }
+            if (urlMatch && textMatch) {
+              const chapterUrl = urlMatch[1];
+              let chapterTitle = textMatch[1].trim();
 
-            // Extract chapter number from title
-            let chapterNumber = 0;
-            const numberMatch = displayTitle.match(/chapter\s+(\d+(\.\d+)?)/i);
-            if (numberMatch) {
-              chapterNumber = parseFloat(numberMatch[1]);
-            } else {
-              const altMatch = displayTitle.match(/ch\.\s*(\d+(\.\d+)?)/i) ||
-                              displayTitle.match(/(\d+(\.\d+)?)/);
-              if (altMatch) {
-                chapterNumber = parseFloat(altMatch[1]);
-              } else {
-                chapterNumber = chapters.length + 1;
+              // Skip non-chapter links (like "Start Reading: Chapter 1")
+              if (chapterTitle.includes('Start Reading')) return;
+
+              // Extract chapter ID
+              const idMatch = chapterUrl.match(/\/(\d+-(?:chapter-|ch-)[^\/\?]+)/i);
+              if (idMatch && !seenIds[idMatch[1]]) {
+                seenIds[idMatch[1]] = true;
+                const chapterId = idMatch[1];
+
+                // Extract chapter number from URL or title
+                let chapterNumber = 0;
+                const urlNumMatch = chapterUrl.match(/(?:chapter-|ch-)(\d+(?:\.\d+)?)/i);
+                const titleNumMatch = chapterTitle.match(/(?:chapter|ch\.?)\s*(\d+(?:\.\d+)?)/i);
+                if (urlNumMatch) {
+                  chapterNumber = parseFloat(urlNumMatch[1]);
+                } else if (titleNumMatch) {
+                  chapterNumber = parseFloat(titleNumMatch[1]);
+                }
+
+                chapters.push({
+                  id: chapterId,
+                  number: chapterNumber,
+                  title: chapterTitle,
+                  url: extractor.ensureAbsoluteUrl(chapterUrl),
+                  date: ""
+                });
               }
             }
-
-            console.log(`Found chapter: ${displayTitle} (${chapterNumber})`);
-
-            chapters.push({
-              id: chapterId,
-              number: chapterNumber,
-              title: displayTitle,
-              url: chapterUrl,
-              date: ""
-            });
           } catch (e) {
-            console.error("Error parsing chapter:", e);
+            console.error("Error parsing chapter", e);
           }
-        }
-      }
-
-      // If no chapters found, add debug chapter
-      if (chapters.length === 0) {
-        console.warn("No chapters found. Adding debug chapter.");
-        chapters.push({
-          id: "debug-chapter",
-          number: 1,
-          title: "Debug Chapter (No chapters found)",
-          url: this.baseUrl + "/debug-chapter",
-          date: new Date().toISOString()
         });
       }
 
-      // Sort chapters by number, descending (newest first)
-      chapters.sort((a, b) => b.number - a.number);
-      console.log(`Processed ${chapters.length} total chapters`);
+      // Sort chapters by number descending
+      chapters.sort(function(a, b) { return b.number - a.number; });
 
-      console.log("Successfully extracted manga details");
+      if (this.debug) console.log("Found " + chapters.length + " chapters");
+
       return {
         success: true,
         manga: {
@@ -365,165 +326,58 @@ var extractor = {
 
   /**
    * Parse chapter images from HTML
+   * Structure: <div id="images">
+   *   - Each image in <div data-name="image-item">
+   *   - Image URL in <img src="https://sXX.mpmok.org/media/mpup/...">
    */
   parseChapterImages: function(html) {
     try {
-      console.log("Starting to parse chapter images");
-      console.log("HTML length: " + html.length);
-
+      if (this.debug) console.log("Starting to parse chapter images");
       const images = [];
 
-      // MangaPark uses .viewer-container or .chapter-reader for image container
-      const possibleContainers = [
-        'class="viewer-container"',
-        'class="chapter-reader"',
-        'class="chapter-images"',
-        'id="viewer"',
-        'class="image-container"'
-      ];
+      // Find images container
+      const imagesContainer = this.findBetween(html, 'id="images"', '</div></div></div>');
 
-      let foundReader = false;
+      if (imagesContainer) {
+        // Extract all image URLs from img tags with mpmok.org or mangapark CDN
+        const imgMatches = imagesContainer.match(/<img[^>]*src="(https?:\/\/[^"]*(?:mpmok\.org|mangapark)[^"]*)"/gi);
 
-      for (const container of possibleContainers) {
-        if (html.includes(container)) {
-          console.log("Found reader container: " + container);
-          foundReader = true;
-
-          let searchStart = 0;
-          let containerStartIndex;
-
-          while ((containerStartIndex = html.indexOf(container, searchStart)) !== -1) {
-            const readerStart = containerStartIndex;
-            let readerEnd = containerStartIndex;
-            let divCount = 1;
-
-            for (let i = readerStart + container.length; i < html.length; i++) {
-              if (html.substr(i, 4) === '<div') {
-                divCount++;
-              } else if (html.substr(i, 6) === '</div>') {
-                divCount--;
-                if (divCount === 0) {
-                  readerEnd = i + 6;
-                  break;
+        if (imgMatches) {
+          imgMatches.forEach(function(match) {
+            const srcMatch = match.match(/src="([^"]*)"/i);
+            if (srcMatch && srcMatch[1]) {
+              const imageUrl = srcMatch[1];
+              // Filter out small thumbnails and avatars
+              if (!imageUrl.includes('/thumb/') &&
+                  !imageUrl.includes('/mpav/') &&
+                  !imageUrl.includes('_300_')) {
+                if (!images.includes(imageUrl)) {
+                  images.push(imageUrl);
                 }
               }
             }
-
-            const readerContent = html.substring(readerStart, readerEnd);
-            console.log("Found reader content block: " + readerContent.length + " characters");
-
-            const imgMatches = readerContent.match(/<img[^>]*>/g);
-
-            if (imgMatches && imgMatches.length > 0) {
-              console.log("Found " + imgMatches.length + " image tags in this container");
-
-              imgMatches.forEach(imgTag => {
-                const imageUrl = this.extractImageUrl(imgTag);
-
-                if (imageUrl &&
-                   !imageUrl.includes("logo") &&
-                   !imageUrl.includes("banner") &&
-                   !imageUrl.includes("ad_") &&
-                   !imageUrl.includes("ads_") &&
-                   !imageUrl.includes("icon") &&
-                   !imageUrl.endsWith(".gif")) {
-
-                  if (!images.includes(imageUrl)) {
-                    console.log("Adding image URL: " + imageUrl.substring(0, 50) + "...");
-                    images.push(imageUrl);
-                  }
-                }
-              });
-            }
-
-            searchStart = readerEnd;
-          }
+          });
         }
       }
 
-      // Fallback: Look for JSON data with image URLs
-      if (!foundReader || images.length === 0) {
-        console.log("No standard reader containers found, looking for JSON data");
-
-        const jsonMatch = html.match(/var\s+images\s*=\s*(\[[\s\S]*?\]);/i);
-        if (jsonMatch) {
-          try {
-            const imageUrls = JSON.parse(jsonMatch[1]);
-            if (Array.isArray(imageUrls)) {
-              imageUrls.forEach(url => {
-                if (url && !images.includes(url)) {
-                  console.log("Adding JSON image URL: " + url.substring(0, 50) + "...");
-                  images.push(this.ensureAbsoluteUrl(url));
-                }
-              });
-            }
-          } catch (e) {
-            console.error("Error parsing JSON images", e);
-          }
-        }
-      }
-
-      // Final fallback: Get all image tags
+      // Fallback: look for any mpmok.org images in the entire HTML
       if (images.length === 0) {
-        console.log("No images found with standard methods, trying fallback");
-
-        const allImgTags = html.match(/<img[^>]*>/g) || [];
-        console.log("Found " + allImgTags.length + " total image tags");
-
-        allImgTags.forEach(imgTag => {
-          if (imgTag.includes('data-src') ||
-              imgTag.includes('loading="lazy"') ||
-              imgTag.includes('class="chapter-img"') ||
-              imgTag.includes('class="page"')) {
-
-            const imageUrl = this.extractImageUrl(imgTag);
-
-            if (imageUrl &&
-               !imageUrl.includes("logo") &&
-               !imageUrl.includes("banner") &&
-               !imageUrl.includes("ad_") &&
-               !imageUrl.endsWith(".gif")) {
-
+        if (this.debug) console.log("Trying fallback image extraction");
+        const allImgMatches = html.match(/<img[^>]*src="(https?:\/\/s\d+\.mpmok\.org\/media\/mpup\/[^"]*)"/gi);
+        if (allImgMatches) {
+          allImgMatches.forEach(function(match) {
+            const srcMatch = match.match(/src="([^"]*)"/i);
+            if (srcMatch && srcMatch[1]) {
+              const imageUrl = srcMatch[1];
               if (!images.includes(imageUrl)) {
-                console.log("Adding fallback image URL: " + imageUrl.substring(0, 50) + "...");
                 images.push(imageUrl);
               }
             }
-          }
-        });
-      }
-
-      console.log("Found total of " + images.length + " chapter images");
-
-      // Sort images if they contain numbered filenames
-      if (images.length > 1) {
-        try {
-          const hasNumbers = images.some(url => {
-            const filename = url.split('/').pop();
-            return /\d+/.test(filename);
           });
-
-          if (hasNumbers) {
-            console.log("Sorting images by filename");
-            images.sort((a, b) => {
-              const aName = a.split('/').pop();
-              const bName = b.split('/').pop();
-
-              const aMatch = aName.match(/(\d+)/);
-              const bMatch = bName.match(/(\d+)/);
-
-              if (aMatch && bMatch) {
-                return parseInt(aMatch[1]) - parseInt(bMatch[1]);
-              }
-
-              return 0;
-            });
-          }
-        } catch (sortError) {
-          console.error("Error sorting images", sortError);
         }
       }
 
+      if (this.debug) console.log("Found " + images.length + " chapter images");
       return { success: true, images: images };
     } catch (e) {
       console.error("Failed to extract chapter images", e);
@@ -532,30 +386,29 @@ var extractor = {
   },
 
   /**
-   * Parse genres from HTML
+   * Parse available genres from HTML
    */
   parseGenres: function(html) {
     try {
-      console.log("Starting to parse genres");
+      if (this.debug) console.log("Starting to parse genres");
       const genres = [];
 
-      // Look for genre links
-      const genreMatches = html.match(/<a[^>]*href=["'][^"']*\/genre\/[^"']*["'][^>]*>([^<]+)<\/a>/gi);
-
+      // MangaPark uses genre filters in browse page
+      const genreMatches = html.match(/genres=([a-z_]+)/gi);
       if (genreMatches) {
-        const uniqueGenres = new Set();
-        genreMatches.forEach(genreTag => {
-          const hrefMatch = genreTag.match(/href=["'][^"']*\/genre\/([^"'\/\?]+)/i);
-          const name = this.cleanText(genreTag);
-
-          if (hrefMatch && name && !uniqueGenres.has(name)) {
-            uniqueGenres.add(name);
-            genres.push({ id: hrefMatch[1], name: name });
+        const seenGenres = {};
+        genreMatches.forEach(function(match) {
+          const genreId = match.replace('genres=', '');
+          if (!seenGenres[genreId]) {
+            seenGenres[genreId] = true;
+            // Convert snake_case to Title Case
+            const genreName = genreId.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+            genres.push({ id: genreId, name: genreName });
           }
         });
       }
 
-      console.log("Found " + genres.length + " genres");
+      if (this.debug) console.log("Found " + genres.length + " genres");
       return { success: true, genres: genres };
     } catch (e) {
       console.error("Failed to extract genres", e);

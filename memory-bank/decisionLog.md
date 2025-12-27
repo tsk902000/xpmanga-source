@@ -135,3 +135,81 @@ MangaPark extractor was implemented as the second reference source for the xpman
 - `all_source.json` - Added mangapark source entry
 
 **Status:** Completed and ready for use
+
+---
+
+## Decision
+
+Webpage Analyzer Tool Creation
+
+## Rationale
+
+To streamline the process of understanding new manga website structures for extractor development, a dedicated tool was needed to download HTML from URLs and analyze it for patterns, selectors, and structure.
+
+## Implementation Details
+
+**Files Created:**
+- `tools/webpage_analyzer.js` - Main tool script
+- `tools/README.md` - Documentation and usage guide
+
+**Features Implemented:**
+- `download` command - Fetches HTML from URLs with automatic redirect handling
+- `analyze` command - Provides basic analysis (file info, element counts, pattern detection)
+- `selectors` command - Finds CSS selectors matching specific patterns
+- `images` command - Extracts all image URLs with their attributes
+- `links` command - Extracts all links with their anchor text
+- `structure` command - Identifies containers, lists, pagination, and navigation elements
+
+**Technical Details:**
+- Supports HTTP and HTTPS protocols
+- Handles gzip and deflate encoding
+- Uses realistic User-Agent header for better compatibility
+- 30-second timeout for requests
+- Automatic redirect following
+- Colorized terminal output for better readability
+
+**Usage Workflow:**
+1. Download HTML from manga website
+2. Analyze basic structure and element counts
+3. Search for relevant selectors (manga, chapter, item, etc.)
+4. Extract images to understand lazy loading patterns
+5. Analyze structure to identify containers and lists
+6. Use findings to create the extractor
+
+**Benefits:**
+- Faster extractor development with automated analysis
+- Consistent workflow for all new sources
+- Reduces manual HTML inspection time
+- Helps identify common patterns across sources
+- Provides sample HTML files for testing
+
+---
+
+## Decision
+
+Enhanced Webpage Analyzer Tool for Cloudflare/Anti-Bot Protection
+
+## Rationale
+
+Many manga websites use Cloudflare or other anti-bot protection that blocks simple HTTP requests with 403 Forbidden errors. The tool needed to be enhanced to provide guidance and alternatives for handling these protected sites.
+
+## Implementation Details
+
+**Enhancements Made:**
+- Added `download-browser` command that provides instructions for manual browser-based downloads
+- Enhanced HTTP headers to be more realistic (added Sec-Fetch headers, DNT, Cache-Control)
+- Added specific 403 error handling with helpful suggestions
+- Provided alternative download methods (curl with browser headers, manual browser save)
+
+**Technical Details:**
+- Added browser-like headers: Sec-Fetch-Dest, Sec-Fetch-Mode, Sec-Fetch-Site, Sec-Fetch-User
+- Added DNT (Do Not Track) header
+- Added Cache-Control header
+- Improved error messaging for 403 responses
+- Provided curl command template for alternative downloads
+
+**User Guidance:**
+When encountering 403 errors, users can:
+1. Use `download-browser` command for manual download instructions
+2. Manually save HTML from browser after passing Cloudflare challenges
+3. Use curl with browser headers as an alternative

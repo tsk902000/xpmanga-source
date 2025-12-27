@@ -17,6 +17,8 @@ This file tracks the project's progress using a task list format.
 * Created extractor template documentation (docs/EXTRACTOR_TEMPLATE.md)
 * Created source prioritization plan (docs/SOURCE_PRIORITIZATION.md)
 * Updated Memory Bank with patterns and decisions
+* Created webpage analyzer tool (tools/webpage_analyzer.js) for HTML download and analysis
+* Enhanced tool to handle Cloudflare/anti-bot protection with download-browser command
 
 ## Current Tasks
 

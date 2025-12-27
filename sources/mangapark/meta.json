@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "single",
   "script": "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/mangapark/extract.js",
-  "baseUrl": "https://mangapark.net",
-  "icon": "https://mangapark.net/favicon.ico",
+  "baseUrl": "https://mangapark.io",
+  "icon": "https://mangapark.io/favicon.ico",
   "imageproxy": "",
-  "imageReferer": "https://mangapark.net/"
+  "imageReferer": "https://mangapark.io/"
 }

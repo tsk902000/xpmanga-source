@@ -9,6 +9,8 @@ This file tracks the project's current status, including recent changes, current
 ## Current Focus
 
 * MangaPark extractor implementation completed (v1.0.0)
+* Created and enhanced webpage analyzer tool for HTML download and analysis
+* Tool now handles Cloudflare/anti-bot protection with download-browser command
 * Ready to begin implementation of high-priority sources
 * First recommended source: mangadex-dn (most popular English source)
 
@@ -25,6 +27,7 @@ This file tracks the project's current status, including recent changes, current
 * Implemented MangaPark extractor (v1.0.0) with all required functions
 * Updated all_source.json with mangapark entry
 * Created test scripts and sample HTML files for mangapark
+* Created webpage analyzer tool (tools/webpage_analyzer.js) for HTML download and analysis
 
 ## Open Questions/Issues
 
