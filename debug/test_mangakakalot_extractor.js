@@ -8,7 +8,7 @@ const https = require('https');
 
 // Load the extractor
 console.log('Loading MangaKakalot extractor...');
-const extractorPath = path.join(__dirname, '..', 'xpmanga-source', 'sources', 'mangakakalot', 'extract.js');
+const extractorPath = path.join(__dirname, '..', 'sources', 'mangakakalot', 'extract.js');
 const extractorCode = fs.readFileSync(extractorPath, 'utf8');
 eval(extractorCode);
 console.log(`Loaded extractor version: ${extractor.version}`);
