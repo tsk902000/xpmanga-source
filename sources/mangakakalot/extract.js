@@ -374,6 +374,7 @@ var extractor = {
                 lastChapterId: lastChapterId
               });
             }
+          } catch (e) {
             console.error("Error parsing manga item", e);
           }
         }
