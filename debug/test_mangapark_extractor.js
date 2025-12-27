@@ -1,17 +1,17 @@
-// Test script for Generic extractor
-// Run with: node tests/test_generic_extractor.js
+// Test script for mangapark extractor
+// Run with: node debug/test_mangapark_extractor.js
 
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
 
-// Load the extractor
-const mangaSource = 'mangakakalot';
-const mangaSourceURL = 'https://www.mangakakalot.gg/';
-const testListUrl = `${mangaSourceURL}manga-list/latest-manga`;
-const testMangaUrl = `${mangaSourceURL}manga/the-war-of-corpses/`;
-const testChapterUrl = `${mangaSourceURL}manga/the-war-of-corpses/chapter-7`;
+// Load extractor
+const mangaSource = 'mangapark';
+const mangaSourceURL = 'https://mangapark.net/';
+const testListUrl = `${mangaSourceURL}browse/latest`;
+const testMangaUrl = `${mangaSourceURL}comic/20006`;
+const testChapterUrl = `${mangaSourceURL}comic/20006/1`;
 
 console.log(`Loading ${mangaSource} extractor...`);
 const extractorPath = path.join(__dirname, '..', 'sources', mangaSource, 'extract.js');
@@ -98,7 +98,7 @@ async function testMangaListExtraction(listUrl) {
         console.log(`   URL: ${item.url}`);
         console.log(`   Cover: ${item.cover}`);
         console.log(`   Latest Chapter: ${item.lastChapter} (${item.lastChapterId})`);
-        
+
         if (!item.lastChapter) {
             console.warn(`   WARNING: Missing latestChapter for ${item.title}`);
         }
@@ -178,7 +178,7 @@ async function testChapterImageExtraction(chapterUrl) {
         console.log(`${i + 1}. ${result.images[i]}`);
       }
 
-      // Test if the images are accessible
+      // Test if images are accessible
       console.log('\nTesting image accessibility:');
       for (let i = 0; i < Math.min(3, result.images.length); i++) {
         try {

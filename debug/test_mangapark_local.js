@@ -1,17 +1,11 @@
-// Test script for Generic extractor
-// Run with: node tests/test_generic_extractor.js
+// Local test script for mangapark extractor using sample HTML files
+// Run with: node debug/test_mangapark_local.js
 
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
-const https = require('https');
 
-// Load the extractor
-const mangaSource = 'mangakakalot';
-const mangaSourceURL = 'https://www.mangakakalot.gg/';
-const testListUrl = `${mangaSourceURL}manga-list/latest-manga`;
-const testMangaUrl = `${mangaSourceURL}manga/the-war-of-corpses/`;
-const testChapterUrl = `${mangaSourceURL}manga/the-war-of-corpses/chapter-7`;
+// Load extractor
+const mangaSource = 'mangapark';
 
 console.log(`Loading ${mangaSource} extractor...`);
 const extractorPath = path.join(__dirname, '..', 'sources', mangaSource, 'extract.js');
@@ -19,71 +13,15 @@ const extractorCode = fs.readFileSync(extractorPath, 'utf8');
 eval(extractorCode);
 console.log(`Loaded extractor version: ${extractor.version}`);
 
-// Function to fetch HTML content
-async function fetchHtml(url) {
-  console.log(`Fetching HTML from: ${url}`);
-  return new Promise((resolve, reject) => {
-    const client = url.startsWith('https') ? https : http;
-
-    const options = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
-        'Referer': mangaSourceURL
-      }
-    };
-
-    client.get(url, options, (res) => {
-      if (res.statusCode !== 200) {
-        reject(new Error(`Failed to fetch HTML: ${res.statusCode}`));
-        return;
-      }
-
-      let data = '';
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      res.on('end', () => {
-        console.log(`Fetched HTML: ${data.length} bytes`);
-        resolve(data);
-      });
-    }).on('error', (err) => {
-      reject(err);
-    });
-  });
-}
-
-// Function to check if an image is accessible
-async function checkImageAccessibility(imageUrl) {
-  return new Promise((resolve, reject) => {
-    const client = imageUrl.startsWith('https') ? https : http;
-
-    const options = {
-      method: 'HEAD',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
-        'Referer': mangaSourceURL
-      }
-    };
-
-    const req = client.request(imageUrl, options, (res) => {
-      resolve(res.statusCode === 200);
-    });
-
-    req.on('error', (err) => {
-      reject(err);
-    });
-
-    req.end();
-  });
-}
-
 // Test manga list extraction
-async function testMangaListExtraction(listUrl) {
+function testMangaListExtraction() {
   try {
-    console.log(`\n=== Testing manga list extraction for: ${listUrl} ===\n`);
+    console.log(`\n=== Testing manga list extraction ===\n`);
 
-    const html = await fetchHtml(listUrl);
+    const htmlPath = path.join(__dirname, '..', 'sources', mangaSource, 'example-homepage.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    console.log(`Loaded HTML from file: ${html.length} bytes`);
+
     console.log('Parsing manga list...');
     const result = extractor.parseMangaList(html);
 
@@ -91,17 +29,13 @@ async function testMangaListExtraction(listUrl) {
     console.log(`Found ${result.items.length} manga items`);
 
     if (result.items.length > 0) {
-      console.log('\nFirst 5 manga items:');
-      for (let i = 0; i < Math.min(5, result.items.length); i++) {
+      console.log('\nManga items:');
+      for (let i = 0; i < result.items.length; i++) {
         const item = result.items[i];
         console.log(`${i + 1}. ${item.title}`);
         console.log(`   URL: ${item.url}`);
         console.log(`   Cover: ${item.cover}`);
         console.log(`   Latest Chapter: ${item.lastChapter} (${item.lastChapterId})`);
-        
-        if (!item.lastChapter) {
-            console.warn(`   WARNING: Missing latestChapter for ${item.title}`);
-        }
       }
     }
 
@@ -122,11 +56,14 @@ async function testMangaListExtraction(listUrl) {
 }
 
 // Test manga details extraction
-async function testMangaDetailsExtraction(mangaUrl) {
+function testMangaDetailsExtraction() {
   try {
-    console.log(`\n=== Testing manga details extraction for: ${mangaUrl} ===\n`);
+    console.log(`\n=== Testing manga details extraction ===\n`);
 
-    const html = await fetchHtml(mangaUrl);
+    const htmlPath = path.join(__dirname, '..', 'sources', mangaSource, 'example-manga-details.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    console.log(`Loaded HTML from file: ${html.length} bytes`);
+
     console.log('Parsing manga details...');
     const result = extractor.parseMangaDetails(html);
 
@@ -135,11 +72,12 @@ async function testMangaDetailsExtraction(mangaUrl) {
       console.log(`Title: ${result.manga.title}`);
       console.log(`Author: ${result.manga.author}`);
       console.log(`Status: ${result.manga.status}`);
+      console.log(`Genres: ${result.manga.genres.join(', ')}`);
       console.log(`Chapters: ${result.manga.chapters.length}`);
 
       if (result.manga.chapters.length > 0) {
-        console.log('\nFirst 3 chapters:');
-        for (let i = 0; i < Math.min(3, result.manga.chapters.length); i++) {
+        console.log('\nChapters:');
+        for (let i = 0; i < result.manga.chapters.length; i++) {
           const chapter = result.manga.chapters[i];
           console.log(`${i + 1}. ${chapter.title} (${chapter.number}) - ${chapter.url}`);
         }
@@ -161,11 +99,14 @@ async function testMangaDetailsExtraction(mangaUrl) {
 }
 
 // Test chapter image extraction
-async function testChapterImageExtraction(chapterUrl) {
+function testChapterImageExtraction() {
   try {
-    console.log(`\n=== Testing image extraction for: ${chapterUrl} ===\n`);
+    console.log(`\n=== Testing image extraction ===\n`);
 
-    const html = await fetchHtml(chapterUrl);
+    const htmlPath = path.join(__dirname, '..', 'sources', mangaSource, 'example-chapter-page.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    console.log(`Loaded HTML from file: ${html.length} bytes`);
+
     console.log('Parsing chapter images...');
     const result = extractor.parseChapterImages(html);
 
@@ -173,21 +114,9 @@ async function testChapterImageExtraction(chapterUrl) {
     console.log(`Found ${result.images.length} images`);
 
     if (result.images.length > 0) {
-      console.log('\nFirst 5 image URLs:');
-      for (let i = 0; i < Math.min(5, result.images.length); i++) {
+      console.log('\nImage URLs:');
+      for (let i = 0; i < result.images.length; i++) {
         console.log(`${i + 1}. ${result.images[i]}`);
-      }
-
-      // Test if the images are accessible
-      console.log('\nTesting image accessibility:');
-      for (let i = 0; i < Math.min(3, result.images.length); i++) {
-        try {
-          const imageUrl = result.images[i];
-          const isAccessible = await checkImageAccessibility(imageUrl);
-          console.log(`Image ${i + 1}: ${isAccessible ? 'Accessible' : 'Not accessible'}`);
-        } catch (e) {
-          console.log(`Image ${i + 1}: Error checking accessibility - ${e.message}`);
-        }
       }
     }
 
@@ -208,15 +137,15 @@ async function testChapterImageExtraction(chapterUrl) {
 }
 
 // Main test function
-async function runTests() {
-  console.log(`=== ${mangaSource} Extractor Test ===`);
+function runTests() {
+  console.log(`=== ${mangaSource} Extractor Local Test ===`);
   console.log(`Extractor version: ${extractor.version}`);
   console.log(`Base URL: ${extractor.baseUrl}`);
 
   // Run all tests
-  const listResult = await testMangaListExtraction(testListUrl);
-  const detailsResult = await testMangaDetailsExtraction(testMangaUrl);
-  const imageResult = await testChapterImageExtraction(testChapterUrl);
+  const listResult = testMangaListExtraction();
+  const detailsResult = testMangaDetailsExtraction();
+  const imageResult = testChapterImageExtraction();
 
   // Print summary
   console.log('\n' + '='.repeat(50));
@@ -243,7 +172,7 @@ async function runTests() {
     mangaList: {
       success: listResult.success,
       itemCount: listResult.itemCount,
-      sampleItems: listResult.items.slice(0, 5)
+      sampleItems: listResult.items
     },
     mangaDetails: {
       success: detailsResult.success,
@@ -253,24 +182,23 @@ async function runTests() {
     chapterImages: {
       success: imageResult.success,
       imageCount: imageResult.imageCount,
-      sampleImages: imageResult.images.slice(0, 5)
+      sampleImages: imageResult.images
     },
     allPassed: allPassed
   };
 
-  const resultsPath = path.join(__dirname, `${mangaSource}_test_results.json`);
+  const resultsPath = path.join(__dirname, `${mangaSource}_local_test_results.json`);
   fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2));
   console.log(`\nTest results saved to ${resultsPath}`);
 
   return allPassed;
 }
 
-// Run the tests
-runTests()
-  .then(passed => {
-    process.exit(passed ? 0 : 1);
-  })
-  .catch(error => {
-    console.error('Fatal error:', error);
-    process.exit(1);
-  });
+// Run tests
+try {
+  const passed = runTests();
+  process.exit(passed ? 0 : 1);
+} catch (error) {
+  console.error('Fatal error:', error);
+  process.exit(1);
+}

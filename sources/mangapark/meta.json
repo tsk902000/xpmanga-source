@@ -1,0 +1,10 @@
+{
+  "name": "MangaPark",
+  "version": "1.0.0",
+  "type": "single",
+  "script": "https://raw.githubusercontent.com/tsk902000/xpmanga-source/refs/heads/main/sources/mangapark/extract.js",
+  "baseUrl": "https://mangapark.net",
+  "icon": "https://mangapark.net/favicon.ico",
+  "imageproxy": "",
+  "imageReferer": "https://mangapark.net/"
+}
