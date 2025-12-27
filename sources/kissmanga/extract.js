@@ -6,7 +6,7 @@ var extractor = {
   baseUrl: "https://kissmanga.in",
   icon: "https://kissmanga.in/wp-content/uploads/2020/01/cropped-logo-192x192.png",
   imageproxy: "",
-  imageReferer: "https://kissmanga.in/",
+  imageReferer: "",
   debug: true,
 
   // Rate limiting configuration
@@ -117,6 +117,9 @@ var extractor = {
     }
 
     if (category && category.url) {
+      if (page==1){
+        return this.ensureAbsoluteUrl(category.url.replace("/page/{page}",""));
+      }
       return this.ensureAbsoluteUrl(category.url.replace("{page}", page));
     }
 
