@@ -3,7 +3,7 @@ var extractor = {
   id: "mangapark",
   name: "MangaPark",
   version: "1.0.0",
-  baseUrl: "https://mangapark.io",
+  baseUrl: "https://webproxy.kai902000.workers.dev/?target=https://mangapark.io",
   icon: "https://mangapark.io/favicon.ico",
   imageproxy: "",
   imageReferer: "https://mangapark.io/",
